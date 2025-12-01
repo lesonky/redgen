@@ -218,7 +218,8 @@ export const fileToGenerativePart = async (file: File): Promise<string> => {
 export const generatePlan = async (
   topic: string,
   referenceImages: ReferenceImage[],
-  templateType: TemplateType
+  templateType: TemplateType,
+  outputLanguage: string
 ): Promise<{ analysis: PlanAnalysis; plan: ImagePlanItem[] }> => {
   const ai = getClient();
   const hasReferences = referenceImages.length > 0;
@@ -255,7 +256,7 @@ export const generatePlan = async (
 ${JSON.stringify(ROLE_TEMPLATES, null, 2)}
 
 【语言与输出要求】
-1. 所有你生成的文本字段必须为「简体中文」。
+1. 所有你生成的文本字段（尤其是 copywriting）中的**文案内容**必须为「${outputLanguage}」。
 2. 输出必须是「合法 JSON」。
 3. 数量：planItems 总数为 6–9 个。
 4. 角色选择：必须从给定的角色列表中选择。
@@ -277,7 +278,7 @@ ${JSON.stringify(ROLE_TEMPLATES, null, 2)}
    - role：从预设列表选择。
    - description：画面内容与氛围描述（<80字）。
    - composition：构图与排版描述，参考 outputGuide。
-   - copywriting：画面上的中文文案（主标题/副标题/短句）。
+   - copywriting：画面上的文案（主标题/副标题/短句）。文案语言：${outputLanguage}。
    - layout：详细描述标题、正文的位置和层级。
    - inheritanceFocus：延续的视觉元素。
 
@@ -330,7 +331,7 @@ ${JSON.stringify(ROLE_TEMPLATES, null, 2)}
 3. 内页要求：每页包含页面规格 + 3格以上 Panel 描述。
 4. 每格必须包含：详细构图、所有文案（对话/旁白）、排版方式。
 5. 风格固定：卡通、明亮、线条干净、适合初中生。
-6. 文案为中文，科学术语必须加粗。
+6. 文案为${outputLanguage}，科学术语必须加粗。
 7. 科普信息必须准确、易懂、有趣。
 8. 输出为 JSON 格式。
 `;
@@ -347,7 +348,7 @@ ${JSON.stringify(ROLE_TEMPLATES, null, 2)}
      * 对于 Cover：描述封面主图、标题位置、角色姿势。
      * 对于 Page X：描述 Panel 1, Panel 2... 的具体画面。
    - composition：描述页面布局。
-   - copywriting：本页出现的所有对话和旁白文本。
+   - copywriting：本页出现的所有对话和旁白文本。语言：${outputLanguage}。
    - layout：描述文字框的位置。
 `;
 
@@ -446,7 +447,8 @@ export const generateImageFromPlan = async (
   referenceImages: ReferenceImage[],
   previousImageBase64: string | undefined,
   analysis: PlanAnalysis | undefined,
-  templateType: TemplateType
+  templateType: TemplateType,
+  outputLanguage: string
 ): Promise<string> => {
   const ai = getClient();
   
@@ -528,6 +530,7 @@ ${templateType === TemplateType.SCIENCE_COMIC ? "- 注意：如果参考图是�
 
 【文字与排版（重点）】
 - 策划文案：${item.copywriting || "（无文案）"}
+- 文字渲染语言：${outputLanguage}。请确保使用正确的${outputLanguage}字形和字符。
 - 请将这些文字真实渲染到画面上。
 - 自动去掉「主标题」「Panel 1」等说明性前缀，只保留对话或旁白内容。
 - ${templateType === TemplateType.SCIENCE_COMIC ? "文字应放在气泡或方形旁白框中。" : "文字应符合商业海报排版。"}

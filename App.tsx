@@ -17,6 +17,7 @@ const App: React.FC = () => {
   const [topic, setTopic] = useState("");
   const [referenceImages, setReferenceImages] = useState<ReferenceImage[]>([]);
   const [selectedTemplate, setSelectedTemplate] = useState<TemplateType>(TemplateType.XIAOHONGSHU);
+  const [outputLanguage, setOutputLanguage] = useState("Simplified Chinese");
   
   const [analysis, setAnalysis] = useState<PlanAnalysis | null>(null);
   const [plan, setPlan] = useState<ImagePlanItem[]>([]);
@@ -51,7 +52,7 @@ const App: React.FC = () => {
   const handleGeneratePlan = async () => {
     setIsProcessing(true);
     try {
-      const result = await generatePlan(topic, referenceImages, selectedTemplate);
+      const result = await generatePlan(topic, referenceImages, selectedTemplate, outputLanguage);
       setAnalysis(result.analysis);
       setPlan(result.plan);
       setStep(AppStep.PLAN_REVIEW);
@@ -84,7 +85,8 @@ const App: React.FC = () => {
               referenceImages, 
               previousImageBase64, 
               analysis || undefined,
-              selectedTemplate
+              selectedTemplate,
+              outputLanguage
             );
             const imageUrl = `data:image/jpeg;base64,${base64Data}`;
 
@@ -130,7 +132,8 @@ const App: React.FC = () => {
           referenceImages, 
           previousImageBase64, 
           analysis || undefined,
-          selectedTemplate
+          selectedTemplate,
+          outputLanguage
         );
         const imageUrl = `data:image/jpeg;base64,${base64Data}`;
 
@@ -164,7 +167,7 @@ const App: React.FC = () => {
     setPlan([]);
     setGeneratedImages([]);
     setIsProcessing(false);
-    // Don't reset selectedTemplate to persist user preference
+    // Don't reset selectedTemplate and outputLanguage to persist user preference
     setStep(AppStep.INPUT);
   };
 
@@ -226,6 +229,8 @@ const App: React.FC = () => {
                 setReferenceImages={setReferenceImages}
                 selectedTemplate={selectedTemplate}
                 setSelectedTemplate={setSelectedTemplate}
+                outputLanguage={outputLanguage}
+                setOutputLanguage={setOutputLanguage}
                 onNext={handleGeneratePlan}
                 isProcessing={isProcessing}
             />

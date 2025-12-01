@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { Upload, X, Image as ImageIcon, Loader2, Sparkles, PenTool, Plus, ScanLine, BrainCircuit, LayoutTemplate, Palette, CheckCircle2, Box, Paintbrush, BookOpen, ShoppingBag } from 'lucide-react';
+import { Upload, X, Image as ImageIcon, Loader2, Sparkles, PenTool, Plus, ScanLine, BrainCircuit, LayoutTemplate, Palette, CheckCircle2, Box, Paintbrush, ShoppingBag, BookOpen, Globe } from 'lucide-react';
 import { ReferenceImage, TemplateType } from '../../types';
 import { fileToGenerativePart } from '../../services/gemini';
 
@@ -10,6 +10,8 @@ interface InputProps {
   setReferenceImages: React.Dispatch<React.SetStateAction<ReferenceImage[]>>;
   selectedTemplate: TemplateType;
   setSelectedTemplate: (t: TemplateType) => void;
+  outputLanguage: string;
+  setOutputLanguage: (l: string) => void;
   onNext: () => void;
   isProcessing: boolean;
 }
@@ -22,6 +24,15 @@ const ANALYSIS_STEPS = [
     { label: "Finalizing Creative Brief...", sub: "Generating prompts & layout", icon: Sparkles },
 ];
 
+const LANGUAGES = [
+    "Simplified Chinese",
+    "Traditional Chinese",
+    "English",
+    "Japanese",
+    "Korean",
+    "Custom"
+];
+
 export const InputStep: React.FC<InputProps> = ({
   topic,
   setTopic,
@@ -29,12 +40,15 @@ export const InputStep: React.FC<InputProps> = ({
   setReferenceImages,
   selectedTemplate,
   setSelectedTemplate,
+  outputLanguage,
+  setOutputLanguage,
   onNext,
   isProcessing
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [dragActive, setDragActive] = useState(false);
   const [analysisStepIndex, setAnalysisStepIndex] = useState(0);
+  const [isCustomLang, setIsCustomLang] = useState(false);
 
   // Simulation of analysis steps
   useEffect(() => {
@@ -97,6 +111,17 @@ export const InputStep: React.FC<InputProps> = ({
     }));
   };
 
+  const handleLanguageChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+      const val = e.target.value;
+      if (val === "Custom") {
+          setIsCustomLang(true);
+          setOutputLanguage("");
+      } else {
+          setIsCustomLang(false);
+          setOutputLanguage(val);
+      }
+  };
+
   // Get current step icon
   const CurrentIcon = ANALYSIS_STEPS[analysisStepIndex].icon;
 
@@ -136,13 +161,43 @@ export const InputStep: React.FC<InputProps> = ({
         <div className="grid gap-8">
           {/* Topic Input Card */}
           <div className={`bg-white p-6 rounded-3xl shadow-sm border relative group transition-all hover:shadow-md ${selectedTemplate === TemplateType.SCIENCE_COMIC ? 'border-blue-100' : 'border-slate-100'}`}>
-              <div className="flex items-center gap-2 mb-4">
-                  <div className={`p-2 rounded-lg ${selectedTemplate === TemplateType.SCIENCE_COMIC ? 'bg-blue-50 text-blue-500' : 'bg-red-50 text-red-500'}`}>
-                      <PenTool className="w-5 h-5" />
+              <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+                  <div className="flex items-center gap-2">
+                      <div className={`p-2 rounded-lg ${selectedTemplate === TemplateType.SCIENCE_COMIC ? 'bg-blue-50 text-blue-500' : 'bg-red-50 text-red-500'}`}>
+                          <PenTool className="w-5 h-5" />
+                      </div>
+                      <label className="text-lg font-bold text-slate-800">
+                        {selectedTemplate === TemplateType.SCIENCE_COMIC ? "Subject & Knowledge" : "Topic & Vibe"}
+                      </label>
                   </div>
-                  <label className="text-lg font-bold text-slate-800">
-                    {selectedTemplate === TemplateType.SCIENCE_COMIC ? "Subject & Knowledge Points" : "Topic & Vibe"}
-                  </label>
+
+                  {/* Language Selector */}
+                  <div className="flex items-center gap-2 bg-slate-50 p-1.5 rounded-lg border border-slate-200">
+                      <Globe className="w-4 h-4 text-slate-400 ml-1" />
+                      {isCustomLang ? (
+                           <div className="flex items-center gap-1">
+                               <input 
+                                  type="text" 
+                                  value={outputLanguage}
+                                  onChange={(e) => setOutputLanguage(e.target.value)}
+                                  placeholder="Enter language..."
+                                  className="text-xs bg-transparent border-none outline-none w-24 text-slate-700 placeholder:text-slate-400"
+                                  autoFocus
+                               />
+                               <button onClick={() => setIsCustomLang(false)} className="text-slate-400 hover:text-red-500"><X className="w-3 h-3"/></button>
+                           </div>
+                      ) : (
+                          <select 
+                            value={LANGUAGES.includes(outputLanguage) ? outputLanguage : "Custom"}
+                            onChange={handleLanguageChange}
+                            className="bg-transparent text-xs font-medium text-slate-600 outline-none cursor-pointer"
+                          >
+                            {LANGUAGES.map(lang => (
+                                <option key={lang} value={lang}>{lang}</option>
+                            ))}
+                          </select>
+                      )}
+                  </div>
               </div>
               
               <textarea
