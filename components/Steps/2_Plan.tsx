@@ -1,5 +1,5 @@
-import React from 'react';
-import { ArrowRight, Layout, Edit3, Type, Palette, RefreshCw, Loader2 } from 'lucide-react';
+import React, { useState } from 'react';
+import { ArrowRight, Layout, Edit3, Type, Palette, RefreshCw, Loader2, Save, X } from 'lucide-react';
 import { ImagePlanItem, PlanAnalysis } from '../../types';
 
 interface PlanStepProps {
@@ -13,6 +13,8 @@ interface PlanStepProps {
 }
 
 const PlanStep: React.FC<PlanStepProps> = ({ plan, setPlan, analysis, onNext, onBack, onRegenerate, isRegenerating }) => {
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState<Partial<ImagePlanItem>>({});
 
   const moveItem = (fromIndex: number, toIndex: number) => {
     if (toIndex < 0 || toIndex >= plan.length) return;
@@ -22,6 +24,27 @@ const PlanStep: React.FC<PlanStepProps> = ({ plan, setPlan, analysis, onNext, on
     // Update order numbers
     const reordered = newPlan.map((item, idx) => ({ ...item, order: idx + 1 }));
     setPlan(reordered);
+  };
+
+  const startEdit = (item: ImagePlanItem) => {
+    setEditingId(item.id);
+    setEditForm({ ...item });
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setEditForm({});
+  };
+
+  const saveEdit = () => {
+    if (!editingId) return;
+    setPlan(prev => prev.map(item => item.id === editingId ? { ...item, ...editForm } as ImagePlanItem : item));
+    setEditingId(null);
+    setEditForm({});
+  };
+
+  const handleInputChange = (field: keyof ImagePlanItem, value: string) => {
+    setEditForm(prev => ({ ...prev, [field]: value }));
   };
 
   return (
@@ -69,68 +92,168 @@ const PlanStep: React.FC<PlanStepProps> = ({ plan, setPlan, analysis, onNext, on
         </div>
 
         <div className="space-y-3">
-          {plan.map((item, index) => (
-            <div key={item.id} className="group flex items-start gap-4 bg-white p-5 rounded-xl border border-slate-200 hover:border-red-300 transition-colors shadow-sm relative overflow-hidden">
-               {/* Decorative Side Bar */}
-               <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-red-500/20 to-transparent" />
+          {plan.map((item, index) => {
+            const isEditing = editingId === item.id;
 
-               {/* Order/Drag Handle */}
-              <div className="flex flex-col items-center gap-2 pt-1 text-slate-400 pl-2">
-                <span className="font-mono font-bold text-lg text-slate-300 w-6 text-center">{index + 1}</span>
-                 <div className="flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button onClick={() => moveItem(index, index - 1)} disabled={index === 0} className="hover:text-red-500 disabled:opacity-30">▲</button>
-                    <button onClick={() => moveItem(index, index + 1)} disabled={index === plan.length - 1} className="hover:text-red-500 disabled:opacity-30">▼</button>
-                 </div>
-              </div>
+            return (
+                <div key={item.id} className={`group flex items-start gap-4 bg-white p-5 rounded-xl border transition-colors shadow-sm relative overflow-hidden ${isEditing ? 'border-red-500 ring-1 ring-red-500' : 'border-slate-200 hover:border-red-300'}`}>
+                
+                {/* Decorative Side Bar */}
+                <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-red-500/20 to-transparent" />
 
-              {/* Content */}
-              <div className="flex-1 space-y-3">
-                {/* Header: Role & Focus */}
-                <div className="flex items-center flex-wrap gap-2">
-                    <span className="bg-red-50 text-red-600 text-xs font-bold px-2.5 py-1 rounded-md uppercase tracking-wider border border-red-100 shadow-sm">{item.role}</span>
-                    <span className="text-xs text-slate-400 border border-slate-100 px-2.5 py-1 rounded-full flex items-center gap-1">
-                        <Palette className="w-3 h-3" /> Inherit: {(item.inheritanceFocus || []).join(', ')}
-                    </span>
-                </div>
-
-                {/* Main Description */}
-                <p className="text-sm text-slate-800 leading-relaxed font-medium bg-slate-50/50 p-3 rounded-lg border border-slate-100/50">
-                    {item.description}
-                </p>
-
-                {/* Details Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs text-slate-500">
-                    <div className="flex items-start gap-2 p-2 bg-slate-50 rounded-lg">
-                        <Layout className="w-3.5 h-3.5 mt-0.5 text-slate-400" />
-                        <div>
-                            <span className="font-semibold text-slate-600 block mb-0.5">Composition & Layout</span>
-                            {item.composition}
-                            {item.layoutSuggestion && (
-                                <span className="block mt-1 text-slate-400 italic border-t border-slate-100 pt-1">
-                                    {item.layoutSuggestion}
-                                </span>
-                            )}
-                        </div>
-                    </div>
-                    
-                    {item.copywriting && (
-                        <div className="flex items-start gap-2 p-2 bg-slate-50 rounded-lg">
-                            <Type className="w-3.5 h-3.5 mt-0.5 text-slate-400" />
-                             <div>
-                                <span className="font-semibold text-slate-600 block mb-0.5">Copywriting</span>
-                                <span className="text-red-500 font-medium">{item.copywriting}</span>
-                            </div>
+                {/* Order/Drag Handle */}
+                <div className="flex flex-col items-center gap-2 pt-1 text-slate-400 pl-2">
+                    <span className="font-mono font-bold text-lg text-slate-300 w-6 text-center">{index + 1}</span>
+                    {!isEditing && (
+                        <div className="flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button onClick={() => moveItem(index, index - 1)} disabled={index === 0} className="hover:text-red-500 disabled:opacity-30">▲</button>
+                            <button onClick={() => moveItem(index, index + 1)} disabled={index === plan.length - 1} className="hover:text-red-500 disabled:opacity-30">▼</button>
                         </div>
                     )}
                 </div>
-              </div>
 
-              {/* Edit Action (Mock) */}
-              <button className="p-2 text-slate-300 hover:text-red-500 transition-colors">
-                <Edit3 className="w-4 h-4" />
-              </button>
-            </div>
-          ))}
+                {/* Content */}
+                <div className="flex-1 space-y-3">
+                    {isEditing ? (
+                        // --- EDIT MODE ---
+                        <div className="space-y-3">
+                            <div className="flex gap-4">
+                                <div className="flex-1 space-y-1">
+                                    <label className="text-xs font-bold text-slate-500 uppercase">Role</label>
+                                    <input 
+                                        value={editForm.role || ''}
+                                        onChange={(e) => handleInputChange('role', e.target.value)}
+                                        className="w-full text-sm font-bold text-red-600 bg-red-50 border border-red-100 rounded px-2 py-1 outline-none focus:border-red-500"
+                                    />
+                                </div>
+                                <div className="flex-1 space-y-1">
+                                    <label className="text-xs font-bold text-slate-500 uppercase">Inherit Focus</label>
+                                    <input 
+                                        value={(editForm.inheritanceFocus || []).join(', ')}
+                                        onChange={(e) => handleInputChange('inheritanceFocus', e.target.value.split(',').map(s => s.trim()))}
+                                        placeholder="e.g. Color, Mood"
+                                        className="w-full text-xs text-slate-600 bg-slate-50 border border-slate-200 rounded px-2 py-1 outline-none focus:border-slate-400"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="space-y-1">
+                                <label className="text-xs font-bold text-slate-500 uppercase">Visual Description (Prompt)</label>
+                                <textarea 
+                                    value={editForm.description || ''}
+                                    onChange={(e) => handleInputChange('description', e.target.value)}
+                                    rows={3}
+                                    className="w-full text-sm text-slate-800 bg-slate-50 border border-slate-200 rounded p-2 outline-none focus:border-slate-400 resize-none"
+                                />
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="space-y-1">
+                                    <label className="text-xs font-bold text-slate-500 uppercase">Composition</label>
+                                    <textarea 
+                                        value={editForm.composition || ''}
+                                        onChange={(e) => handleInputChange('composition', e.target.value)}
+                                        rows={2}
+                                        className="w-full text-xs text-slate-600 bg-slate-50 border border-slate-200 rounded p-2 outline-none focus:border-slate-400 resize-none"
+                                    />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-xs font-bold text-slate-500 uppercase">Layout Suggestion</label>
+                                    <textarea 
+                                        value={editForm.layoutSuggestion || ''}
+                                        onChange={(e) => handleInputChange('layoutSuggestion', e.target.value)}
+                                        rows={2}
+                                        className="w-full text-xs text-slate-600 bg-slate-50 border border-slate-200 rounded p-2 outline-none focus:border-slate-400 resize-none"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="space-y-1">
+                                <label className="text-xs font-bold text-slate-500 uppercase">Copywriting</label>
+                                <input 
+                                    value={editForm.copywriting || ''}
+                                    onChange={(e) => handleInputChange('copywriting', e.target.value)}
+                                    className="w-full text-sm font-medium text-red-500 bg-slate-50 border border-slate-200 rounded px-2 py-1 outline-none focus:border-slate-400"
+                                />
+                            </div>
+                        </div>
+                    ) : (
+                        // --- VIEW MODE ---
+                        <>
+                            {/* Header: Role & Focus */}
+                            <div className="flex items-center flex-wrap gap-2">
+                                <span className="bg-red-50 text-red-600 text-xs font-bold px-2.5 py-1 rounded-md uppercase tracking-wider border border-red-100 shadow-sm">{item.role}</span>
+                                <span className="text-xs text-slate-400 border border-slate-100 px-2.5 py-1 rounded-full flex items-center gap-1">
+                                    <Palette className="w-3 h-3" /> Inherit: {(item.inheritanceFocus || []).join(', ')}
+                                </span>
+                            </div>
+
+                            {/* Main Description */}
+                            <p className="text-sm text-slate-800 leading-relaxed font-medium bg-slate-50/50 p-3 rounded-lg border border-slate-100/50">
+                                {item.description}
+                            </p>
+
+                            {/* Details Grid */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs text-slate-500">
+                                <div className="flex items-start gap-2 p-2 bg-slate-50 rounded-lg">
+                                    <Layout className="w-3.5 h-3.5 mt-0.5 text-slate-400" />
+                                    <div>
+                                        <span className="font-semibold text-slate-600 block mb-0.5">Composition & Layout</span>
+                                        {item.composition}
+                                        {item.layoutSuggestion && (
+                                            <span className="block mt-1 text-slate-400 italic border-t border-slate-100 pt-1">
+                                                {item.layoutSuggestion}
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
+                                
+                                {item.copywriting && (
+                                    <div className="flex items-start gap-2 p-2 bg-slate-50 rounded-lg">
+                                        <Type className="w-3.5 h-3.5 mt-0.5 text-slate-400" />
+                                        <div>
+                                            <span className="font-semibold text-slate-600 block mb-0.5">Copywriting</span>
+                                            <span className="text-red-500 font-medium">{item.copywriting}</span>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </>
+                    )}
+                </div>
+
+                {/* Edit Actions */}
+                <div className="flex flex-col gap-2">
+                    {isEditing ? (
+                        <>
+                            <button 
+                                onClick={saveEdit} 
+                                className="p-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors shadow-sm"
+                                title="Save"
+                            >
+                                <Save className="w-4 h-4" />
+                            </button>
+                            <button 
+                                onClick={cancelEdit} 
+                                className="p-2 bg-slate-100 text-slate-500 rounded-lg hover:bg-slate-200 transition-colors"
+                                title="Cancel"
+                            >
+                                <X className="w-4 h-4" />
+                            </button>
+                        </>
+                    ) : (
+                        <button 
+                            onClick={() => startEdit(item)}
+                            className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                            title="Edit"
+                        >
+                            <Edit3 className="w-4 h-4" />
+                        </button>
+                    )}
+                </div>
+                </div>
+            );
+          })}
         </div>
       </div>
 
@@ -143,7 +266,7 @@ const PlanStep: React.FC<PlanStepProps> = ({ plan, setPlan, analysis, onNext, on
         </button>
         <button
             onClick={onNext}
-            disabled={isRegenerating}
+            disabled={isRegenerating || editingId !== null}
             className="flex-1 py-3 bg-red-500 hover:bg-red-600 disabled:bg-slate-300 text-white font-semibold rounded-xl transition-all shadow-lg shadow-red-500/20 flex justify-center items-center gap-2"
         >
             Start Generation <ArrowRight className="w-4 h-4" />

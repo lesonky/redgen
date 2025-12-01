@@ -15,7 +15,7 @@ type RoleTemplate = {
 
 const ROLE_TEMPLATES: Record<string, RoleTemplate> = {
   // --- Type E: 品牌商业 / 新中式 / 高级产品 ---
-  "封面大片": {
+  封面大片: {
     description: "品牌主视觉封面，用于整组图片的基调设定。",
     creativeFocus: "一眼看出主角与品牌气质，视觉冲击强、信息简洁。",
     outputGuide: [
@@ -24,7 +24,7 @@ const ROLE_TEMPLATES: Record<string, RoleTemplate> = {
       "预留清晰区域放置主标题和一行短副标题，不要堆积小字"
     ]
   },
-  "产品主图": {
+  产品主图: {
     description: "单一产品的权威主图，突出形象与质感。",
     creativeFocus: "让用户在 1 秒内认清产品长什么样，以及它的气质。",
     outputGuide: [
@@ -33,7 +33,7 @@ const ROLE_TEMPLATES: Record<string, RoleTemplate> = {
       "一侧或底部预留少量空间用于放置产品名 / 关键卖点 1–2 行"
     ]
   },
-  "系列展示": {
+  系列展示: {
     description: "多款产品同屏展示，强调“系列感”和家族一致性。",
     creativeFocus: "让用户感知这是一个完整系列，而不是零散单品。",
     outputGuide: [
@@ -42,7 +42,7 @@ const ROLE_TEMPLATES: Record<string, RoleTemplate> = {
       "顶部或中间留出清晰空间，用于写“系列名称 / 系列主张”"
     ]
   },
-  "卖点详解": {
+  卖点详解: {
     description: "信息型布局，围绕核心产品做卖点拆解。",
     creativeFocus: "让用户快速理解 3–5 个关键卖点，结构清晰可扫读。",
     outputGuide: [
@@ -51,7 +51,7 @@ const ROLE_TEMPLATES: Record<string, RoleTemplate> = {
       "背景为干净的浅色渐变或轻纹理，不要放过多装饰元素"
     ]
   },
-  "工艺细节": {
+  工艺细节: {
     description: "局部特写，放大材质、纹理、工艺细节。",
     creativeFocus: "传达“做工精致、细节讲究”的感觉。",
     outputGuide: [
@@ -60,7 +60,7 @@ const ROLE_TEMPLATES: Record<string, RoleTemplate> = {
       "一侧保留狭长空间用于 1–2 行简短说明文字"
     ]
   },
-  "购买指南": {
+  购买指南: {
     description: "以“如何选择 / 如何购买”为重点的导购型布局。",
     creativeFocus: "帮助用户做决策，结合产品 + 价格/权益信息。",
     outputGuide: [
@@ -69,7 +69,7 @@ const ROLE_TEMPLATES: Record<string, RoleTemplate> = {
       "顶部可以有简短标题，如“购买建议 / 套餐对比”，避免大段文字"
     ]
   },
-  "品牌故事": {
+  品牌故事: {
     description: "带有场景与道具的氛围图，用来讲品牌文化和情绪。",
     creativeFocus: "让用户感受到品牌的气质、历史感或生活方式。",
     outputGuide: [
@@ -78,7 +78,7 @@ const ROLE_TEMPLATES: Record<string, RoleTemplate> = {
       "场景道具数量有限且主题统一，光线氛围与品牌调性一致"
     ]
   },
-  "引导关注": {
+  引导关注: {
     description: "结尾引导卡片，用于提示关注、加好友、进店等。",
     creativeFocus: "让用户清楚下一步要干什么，按钮/指令明确。",
     outputGuide: [
@@ -88,83 +88,83 @@ const ROLE_TEMPLATES: Record<string, RoleTemplate> = {
     ]
   },
 
-  // --- Type A, B, C, D (Condensed for brevity, same as before) ---
-  "人物展示": {
+  // --- Type A, B, C, D (Condensed) ---
+  人物展示: {
     description: "人物半身或胸像展示，突出脸部与上身细节。",
     creativeFocus: "强调人物气质、妆容、配饰或与产品的关系。",
     outputGuide: ["人物居中或略偏一侧，上半身占画面约 50%", "另一侧或上方留出区域用于文字说明", "背景模糊、层次柔和"]
   },
-  "动态抓拍": {
+  动态抓拍: {
     description: "带有动作感的抓拍画面，营造真实生活氛围。",
     creativeFocus: "表现“自然、不刻意”的状态，增加亲近感。",
     outputGuide: ["主体略偏一侧，动作方向与留白方向一致", "可允许轻微运动模糊", "一侧保留 20–30% 干净空间"]
   },
-  "整体展示": {
+  整体展示: {
     description: "全身或整体造型展示，用于穿搭、体态或空间表现。",
     creativeFocus: "让用户看到“整体效果”，例如整套穿搭。",
     outputGuide: ["人物全身完整呈现", "人物偏一侧", "背景整洁"]
   },
-  "情绪特写": {
+  情绪特写: {
     description: "近距离的情绪特写，可以是人脸，也可以是手势等。",
     creativeFocus: "放大情绪与情感张力，让用户产生共鸣。",
     outputGuide: ["焦点集中在表情或关键动作上", "背景简单柔和", "预留小面积空间放短句"]
   },
-  "材质细节": {
+  材质细节: {
     description: "大面积纹理/材质背景，用于做信息底图。",
     creativeFocus: "让人感受到“摸上去是什么感觉”。",
     outputGuide: ["纹理铺满画面", "顶部或中央预留较干净区域", "颜色层次柔和", "不要混入无关物体"]
   },
-  "使用场景": {
+  使用场景: {
     description: "产品在真实或模拟场景中的使用画面。",
     creativeFocus: "帮助用户想象“我用它时是什么样”的情境。",
     outputGuide: ["产品或组合清晰可见", "角落留出空间写步骤/说明", "环境道具有限"]
   },
-  "包装展示": {
+  包装展示: {
     description: "强调包装盒、瓶身等外观的专门画面。",
     creativeFocus: "突出包装设计、结构开合、层级感。",
     outputGuide: ["包装主体偏向画面下半部分", "顶部留出标题区域", "辅助道具整齐"]
   },
-  "产品全景": {
+  产品全景: {
     description: "标准目录型主图，适合用于电商详情或列表。",
     creativeFocus: "清晰、标准、无干扰地展示产品全貌。",
     outputGuide: ["产品居中或略偏上", "背景纯色或柔和渐变", "画面上下预留位置", "轮廓锐利"]
   },
-  "环境展示": {
+  环境展示: {
     description: "宽画幅的空间环境展示，用于介绍店铺/场景氛围。",
     creativeFocus: "让人感受到“这是一个怎么样的空间”。",
     outputGuide: ["主体建筑/空间占画面中部", "上下留出横向条带", "结构线条清晰"]
   },
-  "广角全景": {
+  广角全景: {
     description: "超广角全景画面，强调开阔视野或震撼场景。",
     creativeFocus: "营造“大片感”，适合 Vlog 封面或场景介绍。",
     outputGuide: ["地平线稳定", "中部或上部预留标题带", "主体不必过大但层次清晰"]
   },
-  "角落一隅": {
+  角落一隅: {
     description: "小角落的精致构图，用来表现细腻生活感。",
     creativeFocus: "营造“被发现的小美好”的感觉。",
     outputGuide: ["焦点集中于画面一角", "对角线方向保留留白", "元素少而精"]
   },
-  "门头展示": {
+  门头展示: {
     description: "店铺或建筑的门头正面图。",
     creativeFocus: "让用户清晰记住门头长相与招牌文字。",
     outputGuide: ["尽量正面或轻微透视", "上方留出区域", "门头字样清楚"]
   },
-  "步骤演示": {
+  步骤演示: {
     description: "分步骤展示的操作或过程图。",
     creativeFocus: "逻辑清晰，一眼看出先后顺序。",
     outputGuide: ["手部或产品位于中上方", "四周留白给编号", "每张图只展示一个动作"]
   },
-  "对比展示": {
+  对比展示: {
     description: "对比前后、好坏、大小等差异的分屏布局。",
     creativeFocus: "强化“前 vs 后 / A vs B”的差异感。",
     outputGuide: ["画面分屏对称", "中间设置分割线", "每侧只放一个核心对象"]
   },
-  "核心卖点": {
+  核心卖点: {
     description: "围绕单一产品，突出 3–5 个关键卖点的布局。",
     creativeFocus: "让用户一眼记住“为什么要买它”。",
     outputGuide: ["产品主体大占比", "卖点以点状分布", "卖点数量控制在 3–5 个"]
   },
-  "图文详解": {
+  图文详解: {
     description: "大面积图文混排画面，用于做详细说明或教程。",
     creativeFocus: "承载较多信息但依然保持清爽有序。",
     outputGuide: ["主体图片放在一角", "60% 以上区域用于排版文字", "文字分组排版", "背景简洁"]
@@ -172,6 +172,10 @@ const ROLE_TEMPLATES: Record<string, RoleTemplate> = {
 };
 
 const XIAOHONGSHU_PLAN_ROLES = Object.keys(ROLE_TEMPLATES);
+
+// --- Internal State Cache for editing ---
+let LAST_REFERENCE_IMAGES: ReferenceImage[] = [];
+let LAST_ANALYSIS: PlanAnalysis | undefined;
 
 // --- Helper Functions ---
 const getClient = () => {
@@ -317,7 +321,6 @@ ${JSON.stringify(ROLE_TEMPLATES, null, 2)}
       },
       required: ["analysis", "planItems"]
     };
-
   } else {
     // --- SCIENCE COMIC CONFIGURATION ---
     systemInstruction = `
@@ -435,6 +438,10 @@ ${JSON.stringify(ROLE_TEMPLATES, null, 2)}
       inheritanceFocus: item.inheritanceFocus || []
     }));
 
+    // 缓存本次参考图与分析，用于后续 editGeneratedImage
+    LAST_REFERENCE_IMAGES = referenceImages;
+    LAST_ANALYSIS = analysis;
+
     return { analysis, plan };
   } catch (error) {
     console.error("Plan Generation Error:", error);
@@ -451,19 +458,32 @@ export const generateImageFromPlan = async (
   outputLanguage: string
 ): Promise<string> => {
   const ai = getClient();
-  
+
+  // --- 1. 选出「主参考图」：优先 bestReferenceId，其次 isMaterial，再退回第一张 ---
+  const primaryReference: ReferenceImage | undefined = (() => {
+    if (analysis?.bestReferenceId) {
+      const byBestId = referenceImages.find((img) => img.id === analysis.bestReferenceId);
+      if (byBestId) return byBestId;
+    }
+    const materialRef = referenceImages.find((img) => img.isMaterial);
+    if (materialRef) return materialRef;
+    return referenceImages[0];
+  })();
+
+  // 精简逻辑，如果有上一张图，则作为参考图（如果需要调整是否参考前一张图的逻辑，请修改这里）
+  const allowPreviousReference = !!previousImageBase64;
+
   let personaPrompt = "";
   let stylePrompt = "";
 
   if (templateType === TemplateType.SCIENCE_COMIC) {
     // --- SCIENCE COMIC PERSONA ---
     personaPrompt = `你是一名专业的教育漫画家。你的目标是创作清晰、有趣、适合青少年的科普漫画。`;
-    
-    // Check if it's a cover
-    const isCover = item.role.toLowerCase() === 'cover' || item.role === '封面';
+
+    const isCover = item.role.toLowerCase() === "cover" || item.role === "封面";
 
     if (isCover) {
-        stylePrompt = `
+      stylePrompt = `
 【漫画封面规范】
 - 类型：漫画单行本封面 / 宣传海报。
 - 构图：完整的竖版插画（Full Page Illustration），不要分格。
@@ -473,7 +493,7 @@ export const generateImageFromPlan = async (
 - 氛围：充满活力、趣味性和探索感。
 `;
     } else {
-        stylePrompt = `
+      stylePrompt = `
 【漫画内页规范】
 - 类型：多格分镜漫画（Vertical Scroll Comic / Webtoon Style Page）。
 - 构图：这是竖版的一页，包含多个分镜格（Panels）。
@@ -485,10 +505,9 @@ export const generateImageFromPlan = async (
 【Negative Constraints - IMPORTANT】
 - DO NOT render text labels like "Page 1", "Panel 1", "Footer", or "Header" inside the image art.
 - The image should only contain the visual story content and dialog bubbles.
-- No meta-data text.
+- No meta-data text。
 `;
     }
-
   } else {
     // --- COMMERCIAL XIAOHONGSHU PERSONA ---
     personaPrompt = `你是一名世界级的「商业产品 CGI 艺术家 + 摄影师」。`;
@@ -524,26 +543,52 @@ ${personaPrompt}
 ${stylePrompt}
 
 【参考图使用规则】
-- isMaterial=true：参考主体/角色设计。
-- isStyle=true：参考光线/画风/配色。
-${templateType === TemplateType.SCIENCE_COMIC ? "- 注意：如果参考图是真实照片，请只提取其角色特征，必须将其转化为【漫画/卡通风格】绘制。" : ""}
+- 核心参考图：锁定角色/产品的「五官、发型、服饰、logo、外形结构」。
+- 其他参考图：只用于光线、氛围、色彩或道具参考，不得改变核心角色/产品的身份。
+${templateType === TemplateType.SCIENCE_COMIC ? "- 如果参考图是真实照片，只提取其角色特征，并以漫画/卡通风格呈现。" : ""}
+
+【上一张生成图的使用】
+- 如果提供上一张生成图，只用于「构图连续性 / 镜头衔接 / 场景布置」，不能把上一张里偏离的五官或造型当成新的标准。
+- 角色与产品的最终样貌必须仍然对齐【核心参考图】。
 
 【文字与排版（重点）】
 - 策划文案：${item.copywriting || "（无文案）"}
 - 文字渲染语言：${outputLanguage}。请确保使用正确的${outputLanguage}字形和字符。
 - 请将这些文字真实渲染到画面上。
 - 自动去掉「主标题」「Panel 1」等说明性前缀，只保留对话或旁白内容。
-- ${templateType === TemplateType.SCIENCE_COMIC ? "文字应放在气泡或方形旁白框中。" : "文字应符合商业海报排版。"}
+- ${
+    templateType === TemplateType.SCIENCE_COMIC
+      ? "文字应放在气泡或方形旁白框中。"
+      : "文字应符合商业海报排版，布局要与留白结构相匹配。"
+  }
 `;
 
-  console.log(`[Image ${item.order} Prompt] (${templateType}):`, fullPrompt);
+  console.log(
+    `[Image ${item.order} Prompt] (${templateType}) primaryRef=${primaryReference?.id || "none"}, allowPrevious=${allowPreviousReference}`
+  );
 
-  const buildParts = (includePrevious: boolean) => {
+  // --- 构建 parts：核心参考图优先，其次其他参考图，最后（可选）上一张图 ---
+  const buildParts = (opts: { includePrevious: boolean }) => {
     const parts: any[] = [];
 
-    // 参考图
+    // 核心参考图（身份锚点）
+    if (primaryReference) {
+      parts.push({
+        inlineData: {
+          data: primaryReference.base64,
+          mimeType: primaryReference.file.type
+        }
+      });
+      parts.push({
+        text:
+          "【核心参考图】锁定角色/产品的长相与结构。后续所有图片中，五官、发型、服饰、logo、产品外形都必须与此保持高度一致。"
+      });
+    }
+
+    // 其他参考图（风格/材质/道具）
     referenceImages.forEach((img, index) => {
       if (!img.isMaterial && !img.isStyle) return;
+      if (primaryReference && img.id === primaryReference.id) return;
 
       parts.push({
         inlineData: {
@@ -552,19 +597,19 @@ ${templateType === TemplateType.SCIENCE_COMIC ? "- 注意：如果参考图是�
         }
       });
 
-      let instruction = `[参考图 ${index + 1}] `;
+      let instruction = `【辅助参考图 ${index + 1}】`;
       if (img.isMaterial && img.isStyle) {
-        instruction += "【主体 + 风格】同时参考。";
+        instruction += "主体和风格均可参考，但不得改变与核心参考图对齐的身份特征。";
       } else if (img.isStyle) {
-        instruction += "【风格参考】只参考光线/配色/画风。";
+        instruction += "只参考画面光线、色调、氛围、材质质感，不允许改变角色/产品的基本外形。";
       } else if (img.isMaterial) {
-        instruction += "【主体参考】只参考角色/物体特征。";
+        instruction += "可参考局部结构或道具细节，但主体身份仍以核心参考图为准。";
       }
       parts.push({ text: instruction });
     });
 
-    // 上一张图
-    if (includePrevious && previousImageBase64) {
+    // 上一张生成图（ opts.includePrevious 为 true 时使用）
+    if (opts.includePrevious && allowPreviousReference && previousImageBase64) {
       parts.push({
         inlineData: {
           data: previousImageBase64,
@@ -572,11 +617,14 @@ ${templateType === TemplateType.SCIENCE_COMIC ? "- 注意：如果参考图是�
         }
       });
       parts.push({
-        text: "[上一张生成图片]：保持角色/主体身份一致。"
+        text:
+          "【上一张生成图片】仅用于镜头和构图的连续性参考（人物/产品大致位置、场景延续）。角色五官、服饰和产品精细造型仍然必须优先对齐核心参考图。"
       });
     }
 
+    // 文本说明放最后
     parts.push({ text: fullPrompt });
+
     return parts;
   };
 
@@ -600,44 +648,125 @@ ${templateType === TemplateType.SCIENCE_COMIC ? "- 注意：如果参考图是�
   let attempt = 0;
   const maxRetries = 3;
 
+  // 优先用「核心参考图 + （可选）上一张图」
   while (attempt < maxRetries) {
     try {
-      const parts = buildParts(true);
+      const parts = buildParts({ includePrevious: true });
       return await attemptGeneration(parts);
     } catch (error: any) {
-        // ... (Error handling remains similar, omitted for brevity but should be kept in real code)
-       attempt++;
-       console.warn(`Retry ${attempt}...`);
-       if (attempt >= maxRetries) {
-          if (previousImageBase64) {
-             return await attemptGeneration(buildParts(false));
-          }
-          throw error;
-       }
-       await delay(2000 * attempt);
+      attempt++;
+      console.warn(`Image generation retry with previous (attempt ${attempt}):`, error);
+      if (attempt >= maxRetries) {
+        break;
+      }
+      await delay(2000 * attempt);
     }
   }
-  throw new Error("Failed to generate image.");
+
+  // 如果前面都失败，去掉上一张图，只用参考图
+  try {
+    const parts = buildParts({ includePrevious: false });
+    return await attemptGeneration(parts);
+  } catch (error: any) {
+    console.error("Image Generation Error (without previous):", error);
+    throw new Error("Failed to generate image.");
+  }
 };
 
 export const editGeneratedImage = async (
   imageBase64: string,
   instruction: string
 ): Promise<string> => {
-    // Existing edit logic...
-    const ai = getClient();
-    const response = await ai.models.generateContent({
-      model: MODEL_IMAGE_GEN,
-      contents: {
-        parts: [
-          { inlineData: { data: imageBase64, mimeType: "image/jpeg" } },
-          { text: `Edit instructions: ${instruction}. Keep aspect ratio 3:4.` }
-        ]
-      },
-      config: { imageConfig: { aspectRatio: "3:4" } }
-    });
-    for (const part of (response as any).candidates?.[0]?.content?.parts || []) {
-      if (part.inlineData) return part.inlineData.data;
+  const ai = getClient();
+
+  // 使用最近一次 generatePlan 缓存的参考图与分析
+  const refs: ReferenceImage[] = Array.isArray(LAST_REFERENCE_IMAGES) ? LAST_REFERENCE_IMAGES : [];
+  const analysis = LAST_ANALYSIS;
+
+  let primaryReference: ReferenceImage | undefined;
+
+  if (refs.length > 0) {
+    if (analysis?.bestReferenceId) {
+      const byBestId = refs.find((img) => img.id === analysis.bestReferenceId);
+      if (byBestId) {
+        primaryReference = byBestId;
+      }
     }
-    throw new Error("No image data");
+    if (!primaryReference) {
+      const materialRef = refs.find((img) => img.isMaterial);
+      primaryReference = materialRef || refs[0];
+    }
+  }
+
+  const parts: any[] = [];
+
+  // 核心参考图（如果有）
+  if (primaryReference) {
+    parts.push({
+      inlineData: {
+        data: primaryReference.base64,
+        mimeType: primaryReference.file.type
+      }
+    });
+    parts.push({
+      text:
+        "【核心身份参考图】保持此图中的人物/产品五官、发型、服饰、logo、外形结构完全一致。编辑时不得改变其基本身份特征。"
+    });
+  }
+
+  // 其他辅助参考图（如果有）
+  refs.forEach((img) => {
+    if (!img.isMaterial && !img.isStyle) return;
+    if (primaryReference && img.id === primaryReference.id) return;
+
+    parts.push({
+      inlineData: {
+        data: img.base64,
+        mimeType: img.file.type
+      }
+    });
+
+    parts.push({
+      text: "【辅助参考图】参考光线、色调、材质、氛围，不改变主体身份。"
+    });
+  });
+
+  // 待编辑的图片本体
+  parts.push({
+    inlineData: {
+      data: imageBase64,
+      mimeType: "image/jpeg"
+    }
+  });
+
+  // 文本编辑指令
+  parts.push({
+    text: `
+【编辑任务】
+${instruction}
+
+【硬性约束】
+- 如果有核心参考图：人物/产品的五官、发型、体态、产品外形、logo 必须与核心参考图保持一致。
+- 只在当前画面基础上进行修改，不要完全重绘一个新的主体。
+- 尽量局部编辑指定内容，保留已正确的构图与细节。
+- 保持画幅比例 3:4。
+`
+  });
+
+  const response = await ai.models.generateContent({
+    model: MODEL_IMAGE_GEN,
+    contents: { parts },
+    config: {
+      imageConfig: {
+        aspectRatio: "3:4",
+        imageSize: "1K"
+      }
+    }
+  });
+
+  for (const part of (response as any).candidates?.[0]?.content?.parts || []) {
+    if (part.inlineData) return part.inlineData.data;
+  }
+
+  throw new Error("No image data");
 };
