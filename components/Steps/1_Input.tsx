@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { Upload, X, Image as ImageIcon, Loader2, Sparkles, PenTool, Plus, ScanLine, BrainCircuit, LayoutTemplate, Palette, CheckCircle2, Box, Paintbrush, ShoppingBag, BookOpen, Globe } from 'lucide-react';
+import { Upload, X, Image as ImageIcon, Loader2, Sparkles, PenTool, Plus, ScanLine, BrainCircuit, LayoutTemplate, Palette, CheckCircle2, Box, Paintbrush, ShoppingBag, BookOpen, Globe, Wand2 } from 'lucide-react';
 import { ReferenceImage, TemplateType } from '../../types';
 import { fileToGenerativePart } from '../../services/gemini';
 
@@ -17,11 +17,10 @@ interface InputProps {
 }
 
 const ANALYSIS_STEPS = [
-    { label: "Scanning Reference Images...", sub: "Extracting features & composition", icon: ScanLine },
-    { label: "Analyzing Visual Identity...", sub: "Detecting color palette & lighting", icon: Palette },
-    { label: "Decoding Mood & Vibe...", sub: "Understanding emotional resonance", icon: BrainCircuit },
-    { label: "Structuring Narrative Flow...", sub: "Planning sequence & layout", icon: LayoutTemplate },
-    { label: "Finalizing Creative Brief...", sub: "Generating prompts & layout", icon: Sparkles },
+    { label: "Initializing Vision...", sub: "Preparing conceptual models", icon: ScanLine },
+    { label: "Analyzing References...", sub: "Extracting core style & identity", icon: Palette },
+    { label: "Designing Character/Mood...", sub: "Synthesizing visual elements", icon: BrainCircuit },
+    { label: "Generating Master Concepts...", sub: "Rendering high-fidelity preview", icon: Wand2 },
 ];
 
 const LANGUAGES = [
@@ -59,7 +58,7 @@ export const InputStep: React.FC<InputProps> = ({
                 if (prev < ANALYSIS_STEPS.length - 1) return prev + 1;
                 return prev;
             });
-        }, 2500); // Advance every 2.5 seconds
+        }, 3000); 
         return () => clearInterval(interval);
     }
   }, [isProcessing]);
@@ -77,6 +76,7 @@ export const InputStep: React.FC<InputProps> = ({
         newImages.push({
           id: crypto.randomUUID(),
           file,
+          mimeType: file.type,
           previewUrl: URL.createObjectURL(file),
           base64,
           isMaterial: true, // Default enabled
@@ -307,11 +307,11 @@ export const InputStep: React.FC<InputProps> = ({
                         : 'bg-gradient-to-r from-red-500 to-pink-600 hover:from-red-600 hover:to-pink-700 shadow-red-500/20 hover:shadow-red-500/30 disabled:from-slate-300 disabled:to-slate-300'
                     }`}
               >
-                  <Sparkles className="w-6 h-6" />
-                  {selectedTemplate === TemplateType.SCIENCE_COMIC ? "Generate Comic Script" : "Generate Commercial Plan"}
+                  <Wand2 className="w-6 h-6" />
+                  {selectedTemplate === TemplateType.SCIENCE_COMIC ? "Define Character & Style" : "Generate Concept & Style"}
               </button>
               <p className="text-center text-slate-400 text-sm mt-4">
-                  Powered by Gemini 3.0 Pro • {selectedTemplate === TemplateType.SCIENCE_COMIC ? "Educational Storytelling" : "Xiaohongshu Visual Intelligence"}
+                  Step 1: AI analyzes your inputs and creates a Master Visual Reference.
               </p>
           </div>
         </div>

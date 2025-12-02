@@ -219,6 +219,163 @@ export const fileToGenerativePart = async (file: File): Promise<string> => {
 
 // --- API Functions ---
 
+// 1. Generate Concept Analysis & Master Images
+export const generateConcept = async (
+  topic: string,
+  referenceImages: ReferenceImage[],
+  templateType: TemplateType
+): Promise<{ analysisText: string; conceptImages: string[] }> => {
+  const ai = getClient();
+  const hasReferences = referenceImages.length > 0;
+
+  const imageParts = referenceImages.map((img) => ({
+    inlineData: {
+      data: img.base64,
+      mimeType: img.mimeType
+    }
+  }));
+
+  // --- 1. 根据模板类型区分「分析角色 + 任务」 ---
+  let analysisSystemInstruction = "";
+  let analysisPrompt = "";
+
+  if (templateType === TemplateType.XIAOHONGSHU) {
+    // 小红书商业视觉方向
+    analysisSystemInstruction = `
+你是一名世界级「商业视觉总监 / 品牌主视觉摄影指导」。
+你的目标是：结合用户的主题${hasReferences ? "和参考图片" : ""}，为一整套小红书商业图定义「统一的视觉身份（Visual Identity）」，
+并产出一张可以作为整组图片锚点的「竖版主视觉 KV 概念图」描述。`;
+
+    analysisPrompt = `
+任务：分析用户的主题「${topic}」${hasReferences ? "以及参考图片" : ""}，为“小红书风格商业图片”定义一套清晰的视觉风格。
+
+请输出一个 JSON 对象，包含两个字段：
+
+1. "analysis"：使用中文简明描述以下内容（1 段话即可）：
+   - 目标受众与品牌气质（例如：年轻、松弛感、高级新中式、科技感等）
+   - 推荐的色彩倾向（主色、辅助色，大致明度/饱和度）
+   - 光线与质感风格（如：柔和自然光、硬光对比、电影感、磨砂金属、细腻陶瓷等）
+   - 场景与构图倾向（如：桌面静物、空间一角、极简纯色背景等）
+
+2. "imagePrompt"：用于生成「3:4 竖版商业主视觉 KV」的详细提示词（中文或英文均可，但要连贯统一），要求：
+   - 明确这是社交平台 / 小红书用的 3:4 竖版商业图。
+   - 写清楚画面的主角是什么（产品 / 人物 / 场景）以及大致位置。
+   - 指出哪里留白、哪里适合放标题和少量文案，但不要真的写出文案内容。
+   - 强调品牌气质、产品类型、色彩与光线风格。
+   - 不要描述“这是一张概念图 / master image / KV”等元信息，只描述画面本身。`;
+  } else {
+    // 科普漫画 / 漫画方向
+    analysisSystemInstruction = `
+You are a Lead Character Designer and Art Director for a science comic series.
+Your job is to define the MAIN CHARACTER DESIGN and GLOBAL ART STYLE of the comic,
+not just a random illustration.`;
+
+    analysisPrompt = `
+Task: Analyze the user's topic "${topic}"${hasReferences ? " and the provided reference images" : ""},
+and define a unified main character design + overall art style for a science comic aimed at students.
+
+Return a JSON object with:
+
+1. "analysis":
+   A single English paragraph that covers:
+   - Target reader age and tone (e.g. fun, energetic, educational, slightly humorous).
+   - Recommended art style (chibi vs semi-realistic, line thickness, coloring style such as cel-shading or soft shading).
+   - Key character traits that should be visible in design (e.g. curious, energetic, a bit nerdy, confident, etc.).
+   - Overall color palette and lighting mood for the comic (e.g. bright and warm, cool and calm, etc.).
+
+2. "imagePrompt":
+   A highly detailed prompt to generate a "Master Character & Style Sheet" image:
+   - Vertical 3:4 canvas.
+   - Show the main character in at least one full-body front pose (neutral or slightly dynamic).
+   - Optionally add 1–2 extra small poses or expression busts near the main pose.
+   - Background should be simple/neutral so the character design is clearly readable.
+   - No speech bubbles, no comic panels, and no text labels like "Front View" or "Side View" – pure art for design reference.`;
+  }
+
+  const analysisSchema = {
+    type: Type.OBJECT,
+    properties: {
+      analysis: { type: Type.STRING },
+      imagePrompt: { type: Type.STRING }
+    },
+    required: ["analysis", "imagePrompt"]
+  };
+
+  // --- 2. 调用文本模型做「视觉分析 + 概念图 Prompt」 ---
+  const analysisResponse = await ai.models.generateContent({
+    model: MODEL_TEXT_REASONING,
+    contents: {
+      role: "user",
+      parts: [{ text: analysisPrompt }, ...imageParts]
+    },
+    config: {
+      systemInstruction: analysisSystemInstruction,
+      responseMimeType: "application/json",
+      responseSchema: analysisSchema
+    }
+  });
+
+  const analysisResultRaw = (analysisResponse as any).text || "{}";
+  const analysisResult = JSON.parse(cleanJson(analysisResultRaw));
+  const conceptPrompt: string = analysisResult.imagePrompt;
+  const conceptAnalysis: string = analysisResult.analysis;
+
+  // --- 3. 根据模板类型构建出图指令 ---
+  const imageGenerationParts = [
+    ...imageParts,
+    {
+      text:
+        templateType === TemplateType.XIAOHONGSHU
+          ? `Create a high-quality vertical 3:4 commercial key visual image for social media based on the following description:\n${conceptPrompt}\n
+Requirements:
+- It must look like a polished brand key visual (KV) suitable for Xiaohongshu / Instagram.
+- Clear main subject (product or person), tasteful negative space, clean background.
+- Lighting and color style should strictly follow the description.`
+          : `Create a vertical 3:4 master character & style sheet based on the following description:\n${conceptPrompt}\n
+Requirements:
+- Show the main character clearly with at least one full-body front pose.
+- You may add 1–2 small extra poses or facial expression busts.
+- Use a simple, neutral background to keep the design readable.
+- No speech bubbles, no comic panels, no UI or text labels – only pure character and style reference art.`
+    }
+  ];
+
+  // --- 4. 生成 2 张概念图（并行） ---
+  const generateOne = () =>
+    ai.models.generateContent({
+      model: MODEL_IMAGE_GEN,
+      contents: { parts: imageGenerationParts },
+      config: {
+        imageConfig: {
+          aspectRatio: "3:4",
+          imageSize: "1K"
+        }
+      }
+    });
+
+  const imageResponses = await Promise.all([generateOne(), generateOne()]);
+
+  const generatedBase64s: string[] = [];
+  for (const resp of imageResponses) {
+    const parts = (resp as any).candidates?.[0]?.content?.parts || [];
+    for (const part of parts) {
+      if (part.inlineData?.data) {
+        generatedBase64s.push(part.inlineData.data);
+      }
+    }
+  }
+
+  if (generatedBase64s.length === 0) {
+    throw new Error("Failed to generate concept images.");
+  }
+
+  return {
+    analysisText: conceptAnalysis,
+    conceptImages: generatedBase64s
+  };
+};
+
+// 2. Generate Plan
 export const generatePlan = async (
   topic: string,
   referenceImages: ReferenceImage[],
@@ -231,7 +388,7 @@ export const generatePlan = async (
   const imageParts = referenceImages.map((img) => ({
     inlineData: {
       data: img.base64,
-      mimeType: img.file.type
+      mimeType: img.mimeType
     }
   }));
 
@@ -243,6 +400,13 @@ export const generatePlan = async (
     // --- XIAOHONGSHU CONFIGURATION ---
     systemInstruction = `
 你是一个为「小红书风格商业图」服务的「视觉创意总监 + 编排设计师」。
+
+【全局风格锚点（Master Style Anchor）】
+- 参考图数组中的第 0 张是「官方风格锚点图」。
+- 该锚点图定义了全局视觉风格（色彩、光线、材质、镜头语言等）。
+- 如果没有更强理由，请优先将其视为整体项目的风格标准。
+- bestReferenceIndex 在合理情况下应优先指向这一张。
+- 后续所有图片的角色/产品外观、主要材质与灯光基调必须与该锚点严格统一。
 
 【核心理念：先排版、再风格】
 - 你的首要任务是规划每一张图的「角色、排版结构、文字内容和文字位置」。
@@ -270,21 +434,34 @@ ${JSON.stringify(ROLE_TEMPLATES, null, 2)}
     prompt = `
 任务：为主题「${topic}」生成一套商业图片规划（6–9 张），用于小红书等平台的图文发布。
 
+【参考图说明】
+- 你会收到一组参考图像（如果有）。
+- 其中「第 0 张参考图」是已经确认过的「官方风格锚点图」（Master Style Anchor），代表本项目的统一视觉风格。
+- 在分析与规划时，请优先以第 0 张的风格为基准，兼顾其他参考图中的有效信息。
+
+【bestReferenceIndex 要求】
+- analysis.bestReferenceIndex 用于告诉后续出图流程：你认为哪一张参考图最能代表全局风格。
+- 在没有强烈相反理由的前提下，请优先将 bestReferenceIndex 设为 0（即使用第 0 张锚点图）。
+- 只有在你确信另一张参考图更适合作为全局风格代表时，才选择其他索引，并在 styleAnalysis 中说明原因。
+
 【步骤说明】
 1. 内容分析（analysis）
    - 提取关键词、内容方向、风格方向。
-   - 如果有参考图，记录 bestReferenceIndex。
+   - 如果有参考图，记录 bestReferenceIndex（建议为 0，除非有特别理由）。
+   - 在 styleAnalysis 中，用简洁语言说明整体视觉风格和你对锚点图的理解。
 
 2. 规划图片列表（planItems）
    - 共 6–9 个条目。每一张都要从 ROLE_TEMPLATES 中选一个合适的 role。
+   - 第一张（order = 1）必须是「封面大片」，且只能出现一次。
+   - 其余图片可以组合使用不同角色模板，形成一套结构完整的商业图文（封面 → 卖点 → 场景 → 细节 → 引导等）。
 
 3. 每一张图片需要包含：
-   - role：从预设列表选择。
-   - description：画面内容与氛围描述（<80字）。
-   - composition：构图与排版描述，参考 outputGuide。
+   - role：从预设列表中选择（必须合法）。
+   - description：画面内容与氛围描述（<80字，重点描述主体与场景）。
+   - composition：构图与排版描述，参考对应 role 的 outputGuide。
    - copywriting：画面上的文案（主标题/副标题/短句）。文案语言：${outputLanguage}。
-   - layout：详细描述标题、正文的位置和层级。
-   - inheritanceFocus：延续的视觉元素。
+   - layout：详细描述标题、正文的位置和层级（如：主标题在上方中间，副标题在右下角等）。
+   - inheritanceFocus：这一张需要继承前几张中的哪些视觉元素（如：主色、光线方向、主角姿态、品牌标志等），以保证整组图风格统一。
 
 请严格按照 JSON 结构输出。
 `;
@@ -328,6 +505,12 @@ ${JSON.stringify(ROLE_TEMPLATES, null, 2)}
 用户会给你学习主题、目标读者、角色、知识结构。
 请将每个知识点拆解为**一页竖版漫画（1080×1440）**的完整分镜脚本。
 
+【全局风格锚点（Master Style Anchor）】
+- 参考图数组中的第 0 张是「官方角色与风格锚点图」。
+- 该锚点图定义了主角的外观特征（发型、服装、表情气质等）以及整体画风。
+- 后续所有页面中的角色表现与线条/上色风格必须与该锚点保持一致。
+- analysis.bestReferenceIndex 在合理情况下应优先设为 0。
+
 必须严格遵守以下规范：
 1. 结构：**第一页必须是「封面」(Cover)**，后续为「Page 1」「Page 2」等。
 2. 封面要求：包含大标题、核心角色亮相、具有吸引力的视觉海报感。
@@ -342,17 +525,29 @@ ${JSON.stringify(ROLE_TEMPLATES, null, 2)}
     prompt = `
 任务：将科普主题「${topic}」改编为一套竖版科普漫画分镜脚本。
 
+【参考图说明】
+- 如果提供参考图，第 0 张为已经确认的「主角 & 画风锚点图」。
+- 你需要以第 0 张中的角色外观与画风为基准，统一后续所有页面的角色形象。
+- analysis.bestReferenceIndex 用于告诉后续出图流程：你认为哪一张参考图最能代表全局角色和画风，一般应为 0，除非有特殊原因。
+
 【输出要求】
 请生成一个 JSON 对象：
-1. analysis：分析关键词、核心教学目标。
+1. analysis：
+   - keywords：提取本漫画的核心知识点与情绪关键词。
+   - contentDirection：整体教学节奏与叙事思路（例如：从日常场景切入 → 抛出问题 → 解释科学概念 → 总结）。
+   - styleAnalysis：用简短文字说明整体画风（线条、色彩、角色气质），以及你如何理解锚点图的风格。
+   - bestReferenceIndex：优先设为 0（即第 0 张锚点图），除非你有充分理由选其他索引。
+
 2. planItems：
-   - role：第一张必须是 "Cover"，后续为 "Page 1", "Page 2" 等。
+   - role：第一页必须是 "Cover"，后续依次为 "Page 1", "Page 2" 等。
    - description：详细描述这一页的分镜内容。
-     * 对于 Cover：描述封面主图、标题位置、角色姿势。
-     * 对于 Page X：描述 Panel 1, Panel 2... 的具体画面。
-   - composition：描述页面布局。
+     * 对于 Cover：描述封面主图、标题位置、角色姿势、背景氛围。
+     * 对于 Page X：描述 Panel 1, Panel 2... 每一格的具体画面与情绪。
+   - composition：描述页面布局（例如：上大下小三格、竖向分三栏等），并说明大致构图重心。
    - copywriting：本页出现的所有对话和旁白文本。语言：${outputLanguage}。
-   - layout：描述文字框的位置。
+   - layout：描述文字框（对话气泡、旁白框）的典型位置和排列方式，保证阅读顺畅。
+
+请严格按 JSON 结构输出。
 `;
 
     planSchema = {
@@ -470,7 +665,7 @@ export const generateImageFromPlan = async (
     return referenceImages[0];
   })();
 
-  // 精简逻辑，如果有上一张图，则作为参考图（如果需要调整是否参考前一张图的逻辑，请修改这里）
+  // 有上一张图即视为可用
   const allowPreviousReference = !!previousImageBase64;
 
   let personaPrompt = "";
@@ -489,49 +684,53 @@ export const generateImageFromPlan = async (
 - 构图：完整的竖版插画（Full Page Illustration），不要分格。
 - 视觉重心：核心角色处于画面中心，动作生动夸张，吸引眼球。
 - 标题区域：在顶部或底部预留显著的大标题区域（Title Area）。
-- 风格：色彩鲜艳、高饱和度、线条清晰的赛璐璐风格或美式卡通风格。
+- 风格：线条粗细、上色方式、配色风格必须与「主概念图（primary reference）」保持高度一致，就像同一部连载漫画的封面。
 - 氛围：充满活力、趣味性和探索感。
 `;
     } else {
       stylePrompt = `
 【漫画内页规范】
 - 类型：多格分镜漫画（Vertical Scroll Comic / Webtoon Style Page）。
-- 构图：这是竖版的一页，包含多个分镜格（Panels）。
-- 分镜：严格按照描述中的 Panel 1, Panel 2... 绘制分隔线和画面。
-- 风格：背景可以适当简化，突出角色表演和对话空间。
-- 线条：干净、清晰的黑色轮廓线。
-- 色彩：明亮、鲜艳、饱和度适中，避免过于阴暗。
+- 构图：这是竖版的一页，包含多个分镜格（Panels），严格按照 description 中的 Panel 1, Panel 2... 分隔。
+- 分镜：每一格都要有清晰的主体和动作，留出足够空间给对话气泡和旁白框。
+- 风格统一性（重点）：
+  - 所有内页必须与「主概念图（primary reference）」在画风上保持高度一致：
+    * 线条风格（粗细、干净程度）
+    * 上色方式（赛璐璐/柔和渐变、阴影处理方式）
+    * 配色倾向（主色、辅助色、整体明暗）
+  - 角色的五官、发型、服装细节必须和主概念图完全一致，像同一部作品中的同一角色。
+  - 可以改变构图、姿势、表情和场景，但不能改变整体画风。
 
 【Negative Constraints - IMPORTANT】
-- DO NOT render text labels like "Page 1", "Panel 1", "Footer", or "Header" inside the image art.
-- The image should only contain the visual story content and dialog bubbles.
-- No meta-data text。
-`;
+- 不要在画面中绘制 "Page 1", "Panel 1", "Footer", "Header" 等元信息文字。
+- 图像中只包含故事画面内容 + 对话气泡/旁白框，不要额外添加界面元素或标注。`;
     }
   } else {
     // --- COMMERCIAL XIAOHONGSHU PERSONA ---
     personaPrompt = `你是一名世界级的「商业产品 CGI 艺术家 + 摄影师」。`;
     stylePrompt = `
-【风格与材质】
+【风格与材质（以主概念图为锚点）】
 - 画幅比例：3:4（竖图）。
 - 画质：高质量商业渲染，细节清晰，噪点极少。
 - 审美：高级、干净、有结构感。
-- 高级感建议通过：干净构图、合理留白、精确灯光和材质表现来实现。
-`;
+- 主概念图（primary reference）定义了本项目的整体风格：
+  - 灯光类型与方向（软光/硬光、主光源方向、阴影形状）
+  - 色彩倾向（冷暖、饱和度、对比度）
+  - 材质质感（例如：金属、陶瓷、玻璃、布料的呈现方式）
+- 本张图片必须在此基础上保持统一风格，只调整构图和内容，而不是重新发明一种新风格。`;
   }
 
   const fullPrompt = `
 ${personaPrompt}
 
-【全局视觉方向】${
-    analysis
+【全局视觉方向】${analysis
       ? `
 - 内容方向：${analysis.contentDirection || "（未提供）"}
 - 风格方向：${analysis.styleAnalysis || "（未提供）"}
 - 关键词：${analysis.keywords?.length ? analysis.keywords.join("，") : "（未提供）"}`
       : `
-- 风格：${templateType === TemplateType.SCIENCE_COMIC ? "标准科普漫画风格" : "标准商业视觉风格"}`
-  }
+- 风格：${templateType === TemplateType.SCIENCE_COMIC ? "标准科普漫画风格（以主概念图为准）" : "标准商业视觉风格（以主概念图为准）"}`
+    }
 
 【本张图片任务】
 - 序号：第 ${item.order} 张
@@ -542,26 +741,29 @@ ${personaPrompt}
 
 ${stylePrompt}
 
-【参考图使用规则】
-- 核心参考图：锁定角色/产品的「五官、发型、服饰、logo、外形结构」。
-- 其他参考图：只用于光线、氛围、色彩或道具参考，不得改变核心角色/产品的身份。
-${templateType === TemplateType.SCIENCE_COMIC ? "- 如果参考图是真实照片，只提取其角色特征，并以漫画/卡通风格呈现。" : ""}
+【参考图使用规则（重点说明主概念图）】
+- 主概念图（primary reference）：
+  - 定义角色的长相、服饰、气质以及整体画风（线条、上色、配色）。
+  - 所有页面都必须与主概念图在画风和角色形象上保持高度一致。
+- 其他参考图：
+  - 只用于补充光线、材质、场景或道具细节。
+  - 不得改变主概念图所定义的角色身份和整体画风。
+${templateType === TemplateType.SCIENCE_COMIC ? "- 如果参考图是真实照片，只能提取角色特征和场景灵感，并以漫画/卡通风格呈现，与主概念图画风一致。" : ""}
 
 【上一张生成图的使用】
-- 如果提供上一张生成图，只用于「构图连续性 / 镜头衔接 / 场景布置」，不能把上一张里偏离的五官或造型当成新的标准。
-- 角色与产品的最终样貌必须仍然对齐【核心参考图】。
+- 如果提供上一张生成图（例如封面或上一页漫画）：
+  - 可以用于场景延续（背景结构、镜头角度、角色大致位置）和局部细节参考。
+  - 可以帮助保持整个系列在**连贯的视觉语言**下发展（例如某些 recurring 道具、房间布局）。
+  - 但角色的五官、服饰细节以及整体画风，仍然必须优先对齐主概念图。
+  - 不允许因为上一张图的偶然偏差而偏离主概念图的标准风格。
 
-【文字与排版（重点）】
+【文字与排版】
 - 策划文案：${item.copywriting || "（无文案）"}
 - 文字渲染语言：${outputLanguage}。请确保使用正确的${outputLanguage}字形和字符。
-- 请将这些文字真实渲染到画面上。
-- 自动去掉「主标题」「Panel 1」等说明性前缀，只保留对话或旁白内容。
-- ${
-    templateType === TemplateType.SCIENCE_COMIC
-      ? "文字应放在气泡或方形旁白框中。"
-      : "文字应符合商业海报排版，布局要与留白结构相匹配。"
-  }
-`;
+- 请将这些文字真实渲染到画面上：
+  - 商业图：以主标题、副标题、卖点短句等形式排版，和留白结构相匹配。
+  - 漫画页：以对话气泡和旁白框的形式呈现，不要额外生成多余的大段文字。
+- 自动去掉「主标题」「Panel 1」等说明性前缀，只保留对话或旁白的实际内容。`;
 
   console.log(
     `[Image ${item.order} Prompt] (${templateType}) primaryRef=${primaryReference?.id || "none"}, allowPrevious=${allowPreviousReference}`
@@ -571,44 +773,39 @@ ${templateType === TemplateType.SCIENCE_COMIC ? "- 如果参考图是真实照�
   const buildParts = (opts: { includePrevious: boolean }) => {
     const parts: any[] = [];
 
-    // 核心参考图（身份锚点）
+    // 核心参考图（主概念图 / 身份 + 风格锚点）
     if (primaryReference) {
       parts.push({
         inlineData: {
           data: primaryReference.base64,
-          mimeType: primaryReference.file.type
+          mimeType: primaryReference.mimeType
         }
       });
       parts.push({
         text:
-          "【核心参考图】锁定角色/产品的长相与结构。后续所有图片中，五官、发型、服饰、logo、产品外形都必须与此保持高度一致。"
+          "【主概念图（Primary Reference）】这是本项目的风格与角色锚点图。所有图片中的角色五官、发型、服饰、体型比例，以及线条风格、上色方式和配色，都必须与这张图保持高度一致。"
       });
     }
 
-    // 其他参考图（风格/材质/道具）
-    referenceImages.forEach((img, index) => {
+    // 其他参考图（风格/材质/道具/场景补充）
+    referenceImages.forEach((img) => {
       if (!img.isMaterial && !img.isStyle) return;
       if (primaryReference && img.id === primaryReference.id) return;
 
       parts.push({
         inlineData: {
           data: img.base64,
-          mimeType: img.file.type
+          mimeType: img.mimeType
         }
       });
 
-      let instruction = `【辅助参考图 ${index + 1}】`;
-      if (img.isMaterial && img.isStyle) {
-        instruction += "主体和风格均可参考，但不得改变与核心参考图对齐的身份特征。";
-      } else if (img.isStyle) {
-        instruction += "只参考画面光线、色调、氛围、材质质感，不允许改变角色/产品的基本外形。";
-      } else if (img.isMaterial) {
-        instruction += "可参考局部结构或道具细节，但主体身份仍以核心参考图为准。";
-      }
-      parts.push({ text: instruction });
+      parts.push({
+        text:
+          "【辅助参考图】可以参考其中的光线、场景结构、道具或局部细节，但不得改变主概念图所确定的角色形象和整体画风。"
+      });
     });
 
-    // 上一张生成图（ opts.includePrevious 为 true 时使用）
+    // 上一张生成图（如封面或上一页）
     if (opts.includePrevious && allowPreviousReference && previousImageBase64) {
       parts.push({
         inlineData: {
@@ -618,7 +815,7 @@ ${templateType === TemplateType.SCIENCE_COMIC ? "- 如果参考图是真实照�
       });
       parts.push({
         text:
-          "【上一张生成图片】仅用于镜头和构图的连续性参考（人物/产品大致位置、场景延续）。角色五官、服饰和产品精细造型仍然必须优先对齐核心参考图。"
+          "【上一张已生成图片】用于参考镜头衔接、场景延续和局部细节（如房间布局、道具位置）。整体画风和角色形象仍然必须以主概念图为准，不要因为上一张图的偶然变化而偏离主风格。"
       });
     }
 
@@ -648,7 +845,7 @@ ${templateType === TemplateType.SCIENCE_COMIC ? "- 如果参考图是真实照�
   let attempt = 0;
   const maxRetries = 3;
 
-  // 优先用「核心参考图 + （可选）上一张图」
+  // 优先用「主概念图 + （可选）上一张图」
   while (attempt < maxRetries) {
     try {
       const parts = buildParts({ includePrevious: true });
@@ -705,7 +902,7 @@ export const editGeneratedImage = async (
     parts.push({
       inlineData: {
         data: primaryReference.base64,
-        mimeType: primaryReference.file.type
+        mimeType: primaryReference.mimeType
       }
     });
     parts.push({
@@ -722,7 +919,7 @@ export const editGeneratedImage = async (
     parts.push({
       inlineData: {
         data: img.base64,
-        mimeType: img.file.type
+        mimeType: img.mimeType
       }
     });
 

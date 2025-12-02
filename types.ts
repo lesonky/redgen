@@ -1,5 +1,6 @@
 export enum AppStep {
   INPUT = 'INPUT',
+  CONCEPT = 'CONCEPT', // New: Material & Style Analysis/Generation
   PLANNING = 'PLANNING', // Generating the text plan
   PLAN_REVIEW = 'PLAN_REVIEW', // User reviews/edits plan
   GENERATING = 'GENERATING', // Generating actual images
@@ -14,7 +15,8 @@ export enum TemplateType {
 
 export interface ReferenceImage {
   id: string;
-  file: File;
+  file?: File; // Made optional for generated concept images
+  mimeType: string; // Added to store type explicitly
   previewUrl: string;
   base64: string;
   isMaterial: boolean; // New: Use as subject/content source

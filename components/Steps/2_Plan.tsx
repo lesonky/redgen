@@ -43,7 +43,7 @@ const PlanStep: React.FC<PlanStepProps> = ({ plan, setPlan, analysis, onNext, on
     setEditForm({});
   };
 
-  const handleInputChange = (field: keyof ImagePlanItem, value: string) => {
+  const handleInputChange = (field: keyof ImagePlanItem, value: any) => {
     setEditForm(prev => ({ ...prev, [field]: value }));
   };
 

@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { AppStep, ImagePlanItem, PlanAnalysis, ReferenceImage, GeneratedImage, TemplateType } from './types';
 import { InputStep } from './components/Steps/1_Input';
+import ConceptStep from './components/Steps/1b_Concept';
 import PlanStep from './components/Steps/2_Plan';
 import GenerateStep from './components/Steps/3_Generate';
 import EditorStep from './components/Steps/4_Editor';
 import ExportStep from './components/Steps/5_Export';
-import { generatePlan, generateImageFromPlan } from './services/gemini';
+import { generatePlan, generateImageFromPlan, generateConcept } from './services/gemini';
 import { Sparkles, KeyRound, ExternalLink, BookOpen } from 'lucide-react';
 
 const App: React.FC = () => {
@@ -19,6 +20,10 @@ const App: React.FC = () => {
   const [selectedTemplate, setSelectedTemplate] = useState<TemplateType>(TemplateType.XIAOHONGSHU);
   const [outputLanguage, setOutputLanguage] = useState("Simplified Chinese");
   
+  // Concept Data
+  const [conceptAnalysis, setConceptAnalysis] = useState("");
+  const [generatedConcepts, setGeneratedConcepts] = useState<ReferenceImage[]>([]);
+
   const [analysis, setAnalysis] = useState<PlanAnalysis | null>(null);
   const [plan, setPlan] = useState<ImagePlanItem[]>([]);
   const [generatedImages, setGeneratedImages] = useState<GeneratedImage[]>([]);
@@ -49,10 +54,44 @@ const App: React.FC = () => {
   };
 
   // Handlers
-  const handleGeneratePlan = async () => {
+  const handleGenerateConcept = async () => {
     setIsProcessing(true);
     try {
-      const result = await generatePlan(topic, referenceImages, selectedTemplate, outputLanguage);
+        const result = await generateConcept(topic, referenceImages, selectedTemplate);
+        
+        // Convert base64 to ReferenceImage objects
+        const newConcepts: ReferenceImage[] = result.conceptImages.map(b64 => ({
+            id: crypto.randomUUID(),
+            base64: b64,
+            mimeType: "image/jpeg",
+            previewUrl: `data:image/jpeg;base64,${b64}`,
+            isMaterial: true,
+            isStyle: true
+        }));
+
+        setConceptAnalysis(result.analysisText);
+        setGeneratedConcepts(newConcepts);
+        setStep(AppStep.CONCEPT);
+    } catch (e) {
+        alert("Failed to generate concepts. Please try again.");
+        console.error(e);
+    } finally {
+        setIsProcessing(false);
+    }
+  };
+
+  const handleConfirmConcept = async (selectedConcept: ReferenceImage) => {
+    setIsProcessing(true);
+    try {
+      // Prioritize the selected concept by putting it first in the list
+      // This ensures generatePlan and generateImageFromPlan treat it as primary
+      const allReferences = [selectedConcept, ...referenceImages];
+      
+      const result = await generatePlan(topic, allReferences, selectedTemplate, outputLanguage);
+      
+      // Update the main reference list to include the approved concept
+      setReferenceImages(allReferences);
+      
       setAnalysis(result.analysis);
       setPlan(result.plan);
       setStep(AppStep.PLAN_REVIEW);
@@ -82,7 +121,7 @@ const App: React.FC = () => {
             // Call API with Analysis Context and All Reference Images
             const base64Data = await generateImageFromPlan(
               item, 
-              referenceImages, 
+              referenceImages, // This now includes the confirmed concept image at index 0
               previousImageBase64, 
               analysis || undefined,
               selectedTemplate,
@@ -109,6 +148,19 @@ const App: React.FC = () => {
     }
 
     setIsProcessing(false);
+  };
+
+  const handleRegeneratePlan = async () => {
+      setIsProcessing(true);
+      try {
+        const result = await generatePlan(topic, referenceImages, selectedTemplate, outputLanguage);
+        setAnalysis(result.analysis);
+        setPlan(result.plan);
+      } catch (e) {
+          alert("Failed to regenerate plan.");
+      } finally {
+          setIsProcessing(false);
+      }
   };
 
   const handleRegenerateSingleImage = async (index: number) => {
@@ -166,6 +218,8 @@ const App: React.FC = () => {
     setAnalysis(null);
     setPlan([]);
     setGeneratedImages([]);
+    setGeneratedConcepts([]);
+    setConceptAnalysis("");
     setIsProcessing(false);
     // Don't reset selectedTemplate and outputLanguage to persist user preference
     setStep(AppStep.INPUT);
@@ -231,7 +285,18 @@ const App: React.FC = () => {
                 setSelectedTemplate={setSelectedTemplate}
                 outputLanguage={outputLanguage}
                 setOutputLanguage={setOutputLanguage}
-                onNext={handleGeneratePlan}
+                onNext={handleGenerateConcept}
+                isProcessing={isProcessing}
+            />
+        )}
+
+        {step === AppStep.CONCEPT && (
+            <ConceptStep 
+                analysisText={conceptAnalysis}
+                conceptImages={generatedConcepts}
+                selectedTemplate={selectedTemplate}
+                onConfirm={handleConfirmConcept}
+                onRegenerate={handleGenerateConcept}
                 isProcessing={isProcessing}
             />
         )}
@@ -243,7 +308,7 @@ const App: React.FC = () => {
                 analysis={analysis}
                 onBack={() => setStep(AppStep.INPUT)}
                 onNext={handleStartGeneration}
-                onRegenerate={handleGeneratePlan}
+                onRegenerate={handleRegeneratePlan}
                 isRegenerating={isProcessing}
             />
         )}
