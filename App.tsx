@@ -7,7 +7,16 @@ import GenerateStep from './components/Steps/3_Generate';
 import EditorStep from './components/Steps/4_Editor';
 import ExportStep from './components/Steps/5_Export';
 import { generatePlan, generateImageFromPlan, generateConcept } from './services/gemini';
-import { Sparkles, KeyRound, ExternalLink, BookOpen } from 'lucide-react';
+import { Sparkles, KeyRound, ExternalLink, BookOpen, ChevronRight, Check, Layout, ArrowLeft } from 'lucide-react';
+
+const STEPS = [
+  { id: AppStep.INPUT, label: 'Start' },
+  { id: AppStep.CONCEPT, label: 'Concept' },
+  { id: AppStep.PLAN_REVIEW, label: 'Plan' },
+  { id: AppStep.GENERATING, label: 'Create' },
+  { id: AppStep.EDITOR, label: 'Edit' },
+  { id: AppStep.EXPORT, label: 'Finish' },
+];
 
 const App: React.FC = () => {
   const [hasApiKey, setHasApiKey] = useState(false);
@@ -73,18 +82,21 @@ const App: React.FC = () => {
         setGeneratedConcepts(newConcepts);
         setStep(AppStep.CONCEPT);
     } catch (e) {
-        alert("Failed to generate concepts. Please try again.");
-        console.error(e);
+        alert("Failed to generate concepts. Please check your API key or try again.");
+        console.error("Concept generation error:", e);
     } finally {
         setIsProcessing(false);
     }
+  };
+
+  const handleViewExistingConcept = () => {
+    setStep(AppStep.CONCEPT);
   };
 
   const handleConfirmConcept = async (selectedConcept: ReferenceImage) => {
     setIsProcessing(true);
     try {
       // Prioritize the selected concept by putting it first in the list
-      // This ensures generatePlan and generateImageFromPlan treat it as primary
       const allReferences = [selectedConcept, ...referenceImages];
       
       const result = await generatePlan(topic, allReferences, selectedTemplate, outputLanguage);
@@ -108,20 +120,17 @@ const App: React.FC = () => {
     setGeneratedImages([]); // Clear previous
     setIsProcessing(true);
 
-    // We use a mutable array for immediate loop access to previous images
     const currentImages: GeneratedImage[] = [];
 
     for (let i = 0; i < plan.length; i++) {
         const item = plan[i];
         try {
-            // Fix: Check if previous image exists before accessing properties
             const previousImage = i > 0 ? currentImages[i-1] : undefined;
             const previousImageBase64 = previousImage ? previousImage.base64Data : undefined;
             
-            // Call API with Analysis Context and All Reference Images
             const base64Data = await generateImageFromPlan(
               item, 
-              referenceImages, // This now includes the confirmed concept image at index 0
+              referenceImages,
               previousImageBase64, 
               analysis || undefined,
               selectedTemplate,
@@ -143,7 +152,6 @@ const App: React.FC = () => {
 
         } catch (error) {
             console.error(`Error generating image ${i+1}`, error);
-            // We continue to the next image even if one fails
         }
     }
 
@@ -166,19 +174,15 @@ const App: React.FC = () => {
   const handleRegenerateSingleImage = async (index: number) => {
     if (index < 0 || index >= plan.length) return;
 
-    // Set status to generating to show spinner
     setGeneratedImages(prev => prev.map((img, i) => 
         i === index ? { ...img, status: 'generating' } : img
     ));
 
     const item = plan[index];
-    
-    // Use the *current* previous image as context
     const previousImage = index > 0 ? generatedImages[index - 1] : undefined;
     const previousImageBase64 = previousImage ? previousImage.base64Data : undefined;
 
     try {
-        // Call API with Analysis Context
         const base64Data = await generateImageFromPlan(
           item, 
           referenceImages, 
@@ -204,7 +208,6 @@ const App: React.FC = () => {
 
     } catch (error) {
         console.error("Regeneration failed", error);
-        // Revert status to completed to hide spinner
         setGeneratedImages(prev => prev.map((img, i) => 
             i === index ? { ...img, status: 'completed' } : img
         ));
@@ -221,14 +224,37 @@ const App: React.FC = () => {
     setGeneratedConcepts([]);
     setConceptAnalysis("");
     setIsProcessing(false);
-    // Don't reset selectedTemplate and outputLanguage to persist user preference
     setStep(AppStep.INPUT);
+  };
+
+  const handleBack = () => {
+    if (isProcessing) return;
+    
+    switch (step) {
+      case AppStep.CONCEPT:
+        setStep(AppStep.INPUT);
+        break;
+      case AppStep.PLAN_REVIEW:
+        setStep(AppStep.CONCEPT);
+        break;
+      case AppStep.GENERATING:
+        setStep(AppStep.PLAN_REVIEW);
+        break;
+      case AppStep.EDITOR:
+        setStep(AppStep.GENERATING);
+        break;
+      case AppStep.EXPORT:
+        setStep(AppStep.EDITOR);
+        break;
+      default:
+        break;
+    }
   };
 
   if (!hasApiKey) {
     return (
       <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6 text-center">
-        <div className="max-w-md w-full bg-white p-8 rounded-2xl shadow-xl space-y-6">
+        <div className="max-w-md w-full bg-white p-8 rounded-3xl shadow-xl space-y-6 border border-slate-100">
           <div className="w-16 h-16 bg-red-100 text-red-500 rounded-full flex items-center justify-center mx-auto">
             <KeyRound className="w-8 h-8" />
           </div>
@@ -258,84 +284,140 @@ const App: React.FC = () => {
     );
   }
 
+  const currentStepIndex = STEPS.findIndex(s => s.id === step);
+  const themeColor = selectedTemplate === TemplateType.SCIENCE_COMIC ? 'blue' : 'red';
+
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col text-slate-800">
+    <div className="h-screen bg-slate-50 flex flex-col text-slate-800 font-sans overflow-hidden">
       {/* Header */}
-      <header className="bg-white border-b border-slate-200 h-16 flex items-center justify-between px-6 sticky top-0 z-50">
-        <div className="flex items-center gap-2">
-            <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-white shadow-md ${selectedTemplate === TemplateType.SCIENCE_COMIC ? 'bg-gradient-to-br from-blue-500 to-indigo-500' : 'bg-gradient-to-br from-red-500 to-pink-500'}`}>
-                {selectedTemplate === TemplateType.SCIENCE_COMIC ? <BookOpen className="w-5 h-5" /> : <Sparkles className="w-5 h-5" />}
+      <header className="bg-white border-b border-slate-200 h-16 flex-shrink-0 flex items-center justify-between px-6 z-50">
+        <div className="flex items-center gap-3">
+            <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-white shadow-sm transition-colors duration-500 ${selectedTemplate === TemplateType.SCIENCE_COMIC ? 'bg-gradient-to-br from-blue-500 to-indigo-600' : 'bg-gradient-to-br from-red-500 to-pink-600'}`}>
+                {selectedTemplate === TemplateType.SCIENCE_COMIC ? <BookOpen className="w-5 h-5" /> : <Layout className="w-5 h-5" />}
             </div>
-            <span className="font-bold text-lg tracking-tight">RedSet Gen</span>
+            <span className="font-bold text-lg tracking-tight text-slate-900 hidden sm:block">RedSet Gen</span>
         </div>
-        <div className="flex items-center gap-2 text-xs font-medium text-slate-400 bg-slate-100 px-3 py-1.5 rounded-full">
-            <span>GEMINI 3 PRO PREVIEW</span>
+        
+        {/* Unified Stepper */}
+        <div className="flex items-center">
+          <div className="flex items-center bg-slate-100 rounded-full p-1 overflow-x-auto max-w-[60vw] scrollbar-hide">
+            {STEPS.map((s, idx) => {
+              const isActive = idx === currentStepIndex;
+              const isCompleted = idx < currentStepIndex;
+              
+              return (
+                <div key={s.id} className="flex items-center">
+                  <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full transition-all duration-300 ${isActive ? 'bg-white shadow-sm' : ''}`}>
+                    <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold border transition-colors duration-300 flex-shrink-0
+                      ${isActive 
+                          ? `border-${themeColor}-500 text-${themeColor}-500` 
+                          : isCompleted 
+                              ? `bg-${themeColor}-500 border-${themeColor}-500 text-white` 
+                              : 'border-slate-300 text-slate-300'}`}>
+                      {isCompleted ? <Check className="w-3 h-3" /> : idx + 1}
+                    </div>
+                    {/* Label: Always show active, hide others on small screens to save space */}
+                    <span className={`text-xs font-semibold whitespace-nowrap ${isActive ? `text-${themeColor}-600` : isCompleted ? 'text-slate-800' : 'text-slate-400 hidden sm:block'}`}>
+                      {s.label}
+                    </span>
+                  </div>
+                  {idx < STEPS.length - 1 && (
+                     <div className="w-4 sm:w-6 h-px bg-slate-200 mx-1 min-w-[10px]" />
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+            <div className="hidden md:flex items-center gap-2 text-[10px] font-bold text-slate-400 bg-slate-100 px-3 py-1.5 rounded-full uppercase tracking-wider">
+                Gemini 3 Pro
+            </div>
         </div>
       </header>
 
-      {/* Main Content */}
-      <main className="flex-1 p-6 md:p-8 overflow-hidden">
-        {step === AppStep.INPUT && (
-            <InputStep 
-                topic={topic}
-                setTopic={setTopic}
-                referenceImages={referenceImages}
-                setReferenceImages={setReferenceImages}
-                selectedTemplate={selectedTemplate}
-                setSelectedTemplate={setSelectedTemplate}
-                outputLanguage={outputLanguage}
-                setOutputLanguage={setOutputLanguage}
-                onNext={handleGenerateConcept}
-                isProcessing={isProcessing}
-            />
-        )}
+      {/* Main Content Area - Responsive Container */}
+      <main className="flex-1 overflow-hidden relative w-full bg-slate-50">
+        <div className="h-full w-full overflow-y-auto custom-scrollbar p-4 md:p-6 lg:p-8 flex justify-center">
+            {/* Centered container with full width capability */}
+            <div className="w-full h-full max-w-7xl flex flex-col">
+            
+            {step === AppStep.INPUT && (
+                <InputStep 
+                    topic={topic}
+                    setTopic={setTopic}
+                    referenceImages={referenceImages}
+                    setReferenceImages={setReferenceImages}
+                    selectedTemplate={selectedTemplate}
+                    setSelectedTemplate={setSelectedTemplate}
+                    outputLanguage={outputLanguage}
+                    setOutputLanguage={setOutputLanguage}
+                    onNext={handleGenerateConcept}
+                    isProcessing={isProcessing}
+                    hasGeneratedConcepts={generatedConcepts.length > 0}
+                    onViewExisting={handleViewExistingConcept}
+                />
+            )}
 
-        {step === AppStep.CONCEPT && (
-            <ConceptStep 
-                analysisText={conceptAnalysis}
-                conceptImages={generatedConcepts}
-                selectedTemplate={selectedTemplate}
-                onConfirm={handleConfirmConcept}
-                onRegenerate={handleGenerateConcept}
-                isProcessing={isProcessing}
-            />
-        )}
+            {step === AppStep.CONCEPT && (
+                <ConceptStep 
+                    analysisText={conceptAnalysis}
+                    conceptImages={generatedConcepts}
+                    selectedTemplate={selectedTemplate}
+                    onConfirm={handleConfirmConcept}
+                    onRegenerate={handleGenerateConcept}
+                    isProcessing={isProcessing}
+                    onBack={handleBack}
+                />
+            )}
 
-        {step === AppStep.PLAN_REVIEW && analysis && (
-            <PlanStep 
-                plan={plan}
-                setPlan={setPlan}
-                analysis={analysis}
-                onBack={() => setStep(AppStep.INPUT)}
-                onNext={handleStartGeneration}
-                onRegenerate={handleRegeneratePlan}
-                isRegenerating={isProcessing}
-            />
-        )}
+            {step === AppStep.PLAN_REVIEW && analysis && (
+                <PlanStep 
+                    plan={plan}
+                    setPlan={setPlan}
+                    analysis={analysis}
+                    onBack={handleBack}
+                    onNext={handleStartGeneration}
+                    onRegenerate={handleRegeneratePlan}
+                    isRegenerating={isProcessing}
+                    selectedTemplate={selectedTemplate}
+                />
+            )}
 
-        {step === AppStep.GENERATING && (
-            <GenerateStep 
-                plan={plan}
-                generatedImages={generatedImages}
-                isGenerating={isProcessing}
-                currentGeneratingIndex={generatedImages.length}
-                onContinue={() => setStep(AppStep.EDITOR)}
-                onCancel={() => setIsProcessing(false)}
-                onRegenerate={handleRegenerateSingleImage}
-            />
-        )}
+            {step === AppStep.GENERATING && (
+                <GenerateStep 
+                    plan={plan}
+                    generatedImages={generatedImages}
+                    isGenerating={isProcessing}
+                    currentGeneratingIndex={generatedImages.length}
+                    onContinue={() => setStep(AppStep.EDITOR)}
+                    onBack={handleBack}
+                    onRegenerate={handleRegenerateSingleImage}
+                    selectedTemplate={selectedTemplate}
+                />
+            )}
 
-        {step === AppStep.EDITOR && (
-            <EditorStep 
-                images={generatedImages}
-                setImages={setGeneratedImages}
-                onFinish={() => setStep(AppStep.EXPORT)}
-            />
-        )}
+            {step === AppStep.EDITOR && (
+                <EditorStep 
+                    images={generatedImages}
+                    setImages={setGeneratedImages}
+                    onFinish={() => setStep(AppStep.EXPORT)}
+                    onBack={handleBack}
+                    selectedTemplate={selectedTemplate}
+                />
+            )}
 
-        {step === AppStep.EXPORT && (
-            <ExportStep images={generatedImages} onReset={handleReset} />
-        )}
+            {step === AppStep.EXPORT && (
+                <ExportStep 
+                    images={generatedImages} 
+                    onReset={handleReset} 
+                    onBack={handleBack}
+                    selectedTemplate={selectedTemplate}
+                />
+            )}
+            </div>
+        </div>
       </main>
     </div>
   );
