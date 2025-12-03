@@ -72,15 +72,15 @@ const EditorStep: React.FC<EditorStepProps> = ({ images, setImages, onFinish, on
        <div className="flex-1 flex flex-col md:flex-row gap-6 min-h-0">
            
            {/* Canvas (Center) */}
-           <div className="flex-1 bg-slate-900 rounded-2xl shadow-lg flex items-center justify-center relative overflow-hidden order-2 md:order-1 min-h-[300px]">
+           <div className="flex-1 bg-slate-900 rounded-2xl shadow-lg flex items-center justify-center relative overflow-hidden order-2 md:order-1 min-h-[300px] p-4 md:p-8">
                 <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'radial-gradient(#ffffff 1px, transparent 1px)', backgroundSize: '32px 32px' }}></div>
                 
                 {selectedImage ? (
-                    <div className="relative h-full md:h-[90%] aspect-[3/4] shadow-2xl rounded-sm overflow-hidden ring-1 ring-white/10 transition-all p-4 md:p-0">
-                        <img src={selectedImage.imageUrl} alt="Editing" className="w-full h-full object-contain md:object-cover bg-black" />
+                    <div className="relative max-w-full max-h-full aspect-[3/4] shadow-2xl rounded-sm overflow-hidden ring-1 ring-white/10 transition-all bg-black">
+                        <img src={selectedImage.imageUrl} alt="Editing" className="w-full h-full object-contain" />
                         
                         {/* Status Overlay */}
-                        <div className="absolute top-6 left-6 md:top-4 md:left-4 bg-black/60 backdrop-blur-md text-white px-4 py-2 rounded-full text-xs font-medium border border-white/10 shadow-lg flex items-center gap-2">
+                        <div className="absolute top-4 left-4 bg-black/60 backdrop-blur-md text-white px-3 py-1.5 rounded-full text-xs font-medium border border-white/10 shadow-lg flex items-center gap-2 pointer-events-none">
                             <span className={`w-2 h-2 rounded-full bg-${themeColor}-500 animate-pulse`}></span>
                             {selectedImage.planItem.role}
                         </div>

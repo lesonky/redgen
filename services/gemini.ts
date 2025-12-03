@@ -131,7 +131,7 @@ const ROLE_TEMPLATES: Record<string, RoleTemplate> = {
   },
   环境展示: {
     description: "宽画幅的空间环境展示，用于介绍店铺/场景氛围。",
-    creativeFocus: "让人感受到“这是一个怎么样的空间”。",
+    creativeFocus: "让人感受到“这是一个怎么样的空间」。",
     outputGuide: ["主体建筑/空间占画面中部", "上下留出横向条带", "结构线条清晰"]
   },
   广角全景: {
@@ -204,6 +204,34 @@ const cleanJson = (text: string) => {
   return cleaned;
 };
 
+/**
+ * 安全打印日志，自动隐藏过长的 Base64 字符串
+ */
+export const safeLog = (label: string, data: any) => {
+  const cleaned = JSON.stringify(
+    data,
+    (key, value) => {
+      if (typeof value === "string") {
+        if (["data", "base64", "inlineData"].includes(key)) {
+          return `[BASE64 DATA HIDDEN] (Length: ${value.length} chars)`;
+        }
+        if (value.length > 5000) {
+          return `${value.substring(0, 5000)}... [TRUNCATED content, total length: ${value.length}]`;
+        }
+      }
+      if (key === "inlineData" && value && typeof value === "object") {
+        return {
+          ...value,
+          data: `[BASE64 IMAGE] (Mime: ${value.mimeType}, Length: ${value.data?.length || 0})`
+        };
+      }
+      return value;
+    },
+    2
+  );
+  console.log(`\n--- [LOG: ${label}] ---\n${cleaned}\n----------------------\n`);
+};
+
 export const fileToGenerativePart = async (file: File): Promise<string> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -228,12 +256,26 @@ export const generateConcept = async (
   const ai = getClient();
   const hasReferences = referenceImages.length > 0;
 
-  const imageParts = referenceImages.map((img) => ({
-    inlineData: {
-      data: img.base64,
-      mimeType: img.mimeType
+  // Build labeled parts to distinguish between Style and Material references
+  const labeledParts: any[] = [];
+
+  referenceImages.forEach((img, idx) => {
+    const roles: string[] = [];
+    if (img.isMaterial) roles.push("MATERIAL/SUBJECT (Shape, Identity, Product Content)");
+    if (img.isStyle) roles.push("STYLE/AESTHETIC (Lighting, Color, Art Style)");
+
+    if (roles.length === 0) {
+      roles.push("General Reference (Both Style & Material)");
     }
-  }));
+
+    labeledParts.push({ text: `[Reference Image ${idx + 1} Usage]: ${roles.join(" + ")}` });
+    labeledParts.push({
+      inlineData: {
+        data: img.base64,
+        mimeType: img.mimeType
+      }
+    });
+  });
 
   // --- 1. 根据模板类型区分「分析角色 + 任务」 ---
   let analysisSystemInstruction = "";
@@ -242,54 +284,119 @@ export const generateConcept = async (
   if (templateType === TemplateType.XIAOHONGSHU) {
     // 小红书商业视觉方向
     analysisSystemInstruction = `
-你是一名世界级「商业视觉总监 / 品牌主视觉摄影指导」。
-你的目标是：结合用户的主题${hasReferences ? "和参考图片" : ""}，为一整套小红书商业图定义「统一的视觉身份（Visual Identity）」，
-并产出一张可以作为整组图片锚点的「竖版主视觉 KV 概念图」描述。`;
+You are a world-class Visual Director specializing in East-Asian commercial aesthetics and social-media Key Visual design.
+
+Your job is to create a "Master Visual Identity" (KV) that is:
+- region-aware (adapt to cultural taste suggested by the topic's locale),
+- brand-aware (use tone & mood consistent with the brand’s typical audience),
+- reference-faithful (strictly follow the MATERIAL vs STYLE meaning of references),
+- *not a literal copy* of any reference image.
+
+CRITICAL RULES:
+1. SUBJECT / CONTENT MUST come from the user topic (“${topic}”) + MATERIAL references.
+2. STYLE / AESTHETICS MUST strictly follow STYLE references.
+   - Lighting direction & softness
+   - Color palette & saturation
+   - Texture, material rendering
+   - Camera language, composition hierarchy
+3. LOCALIZATION:
+   - If topic / brand name / scene belongs to a specific region (China, Japan, Korea, Southeast Asia, Western market), adapt the aesthetic accordingly:
+     - East Asia → softer gradients, precise product lighting, clean vertical composition
+     - China / Xiaohongshu → refined commercial look, balanced minimalism + premium tone
+     - Japan → cooler palette, delicate minimalism, high discipline in composition
+     - Korea → skin-smooth, bright & airy, warm pastel tone
+     - Western brand → stronger contrast, crisp high-end campaign look
+   - Localize mood but DO NOT change the fundamental style from STYLE references.
+4. The Master KV must feel like a *flagship visual* that defines the entire series.
+
+Never describe references directly; instead, synthesize style cues to apply onto the new subject.`;
 
     analysisPrompt = `
-任务：分析用户的主题「${topic}」${hasReferences ? "以及参考图片" : ""}，为“小红书风格商业图片”定义一套清晰的视觉风格。
+Task: Analyze the topic **"${topic}"** and the labeled reference images (MATERIAL vs STYLE).
+Your mission is to create a region-aware, style-controlled Master Key Visual concept.
 
-请输出一个 JSON 对象，包含两个字段：
+Please return strict JSON:
 
-1. "analysis"：使用中文简明描述以下内容（1 段话即可）：
-   - 目标受众与品牌气质（例如：年轻、松弛感、高级新中式、科技感等）
-   - 推荐的色彩倾向（主色、辅助色，大致明度/饱和度）
-   - 光线与质感风格（如：柔和自然光、硬光对比、电影感、磨砂金属、细腻陶瓷等）
-   - 场景与构图倾向（如：桌面静物、空间一角、极简纯色背景等）
+{
+  "analysis": "A concise explanation of how MATERIAL + STYLE + LOCAL aesthetic combine.",
+  "imagePrompt": "The detailed KV prompt that will be used for image generation."
+}
 
-2. "imagePrompt"：用于生成「3:4 竖版商业主视觉 KV」的详细提示词（中文或英文均可，但要连贯统一），要求：
-   - 明确这是社交平台 / 小红书用的 3:4 竖版商业图。
-   - 写清楚画面的主角是什么（产品 / 人物 / 场景）以及大致位置。
-   - 指出哪里留白、哪里适合放标题和少量文案，但不要真的写出文案内容。
-   - 强调品牌气质、产品类型、色彩与光线风格。
-   - 不要描述“这是一张概念图 / master image / KV”等元信息，只描述画面本身。`;
+Guidelines for "analysis":
+- Summarize the visual identity.
+- Highlight how STYLE references drive lighting/color.
+- Highlight how MATERIAL references determine form/shape/subject.
+- Mention the localized cultural aesthetic (East-Asian/Chinese/Japanese/Korean/Western) based on the topic’s brand or cultural context.
+
+Guidelines for "imagePrompt":
+- Format: 3:4 vertical, commercial KV.
+- Subject: only based on topic + MATERIAL references.
+- Style: EXACTLY follow STYLE references (lighting, palette, textures).
+- Composition:
+  - clean premium space
+  - 30–40% controlled negative space for text
+  - region-consistent mood (based on topic locale)
+- Do NOT replicate any reference image; instead create a fresh KV that inherits style motifs.
+`;
   } else {
     // 科普漫画 / 漫画方向
     analysisSystemInstruction = `
-You are a Lead Character Designer and Art Director for a science comic series.
-Your job is to define the MAIN CHARACTER DESIGN and GLOBAL ART STYLE of the comic,
-not just a random illustration.`;
+You are a Lead Character Designer & Art Director specializing in East-Asian educational comics.
+
+Your job is to create a "Master Character + Art Style Sheet" that:
+- respects MATERIAL references for character identity,
+- strictly copies STYLE references for line style, shading, color logic,
+- adapts culturally to the learning context (region-aware visual language).
+
+CRITICAL RULES:
+1. CHARACTER IDENTITY comes ONLY from the user topic and MATERIAL references.
+2. ART STYLE MUST exactly follow STYLE references:
+   - line thickness & cleanliness
+   - shading style (cel shading / soft)
+   - color palette & saturation
+   - facial proportions & chibi/normal/cartoon logic
+3. LOCALIZATION:
+   - If the topic or educational setting is Asian, default to clean bright educational style common in Chinese/Japanese STEM comics.
+   - If topic is Western, slightly increase contrast and reduce cuteness (but still follow style references).
+   - Always align with regional educational aesthetic norms.
+4. This Master Sheet must be the canonical identity for the entire comic.
+
+Do NOT describe reference images; extract style logic and reapply.
+`;
 
     analysisPrompt = `
-Task: Analyze the user's topic "${topic}"${hasReferences ? " and the provided reference images" : ""},
-and define a unified main character design + overall art style for a science comic aimed at students.
+Task: Analyze the topic **"${topic}"** and the labeled references.
+You must generate a region-aware, style-locked Master Character Sheet concept.
 
-Return a JSON object with:
+Return strict JSON:
 
-1. "analysis":
-   A single English paragraph that covers:
-   - Target reader age and tone (e.g. fun, energetic, educational, slightly humorous).
-   - Recommended art style (chibi vs semi-realistic, line thickness, coloring style such as cel-shading or soft shading).
-   - Key character traits that should be visible in design (e.g. curious, energetic, a bit nerdy, confident, etc.).
-   - Overall color palette and lighting mood for the comic (e.g. bright and warm, cool and calm, etc.).
+{
+  "analysis": "Short explanation of the character concept, style extraction, and local adaptation.",
+  "imagePrompt": "Detailed prompt for generating the Master Character Sheet."
+}
 
-2. "imagePrompt":
-   A highly detailed prompt to generate a "Master Character & Style Sheet" image:
-   - Vertical 3:4 canvas.
-   - Show the main character in at least one full-body front pose (neutral or slightly dynamic).
-   - Optionally add 1–2 extra small poses or expression busts near the main pose.
-   - Background should be simple/neutral so the character design is clearly readable.
-   - No speech bubbles, no comic panels, and no text labels like "Front View" or "Side View" – pure art for design reference.`;
+Guidelines for "analysis":
+- Summarize the character: posture, tone, personality.
+- Explain how MATERIAL reference influences identity.
+- Explain how STYLE reference determines the entire drawing style.
+- Explain the regional educational aesthetic (e.g., Chinese science comics = clean, bright, friendly).
+
+Guidelines for "imagePrompt":
+- Full-body neutral or welcoming pose.
+- Background simple neutral.
+- EXACT line style & shading of STYLE references.
+- Keep character identity consistent with MATERIAL references.
+- Region-aware color decisions:
+  - East-Asian education style: bright, friendly, clean
+  - Japanese manga: sharper lines, cuter proportions
+  - Korean webtoon: smoother gradients, airy colors
+  - Western edu-comic: sharper contrast, clearer shapes
+- IMPORTANT: Under or near the character, render a small label with:
+  - the character's local name, and
+  - a stable internal ID in the format "Name / CHAR_01".
+  This label is part of the character sheet and will be used as a visual anchor for identity in later pages.
+- No panels. Apart from the small name + ID label, avoid additional text.
+`;
   }
 
   const analysisSchema = {
@@ -306,7 +413,7 @@ Return a JSON object with:
     model: MODEL_TEXT_REASONING,
     contents: {
       role: "user",
-      parts: [{ text: analysisPrompt }, ...imageParts]
+      parts: [...labeledParts, { text: analysisPrompt }]
     },
     config: {
       systemInstruction: analysisSystemInstruction,
@@ -322,27 +429,29 @@ Return a JSON object with:
 
   // --- 3. 根据模板类型构建出图指令 ---
   const imageGenerationParts = [
-    ...imageParts,
+    ...labeledParts,
     {
       text:
         templateType === TemplateType.XIAOHONGSHU
-          ? `Create a high-quality vertical 3:4 commercial key visual image for social media based on the following description:\n${conceptPrompt}\n
-Requirements:
-- It must look like a polished brand key visual (KV) suitable for Xiaohongshu / Instagram.
-- Clear main subject (product or person), tasteful negative space, clean background.
-- Lighting and color style should strictly follow the description.`
-          : `Create a vertical 3:4 master character & style sheet based on the following description:\n${conceptPrompt}\n
-Requirements:
-- Show the main character clearly with at least one full-body front pose.
-- You may add 1–2 small extra poses or facial expression busts.
-- Use a simple, neutral background to keep the design readable.
-- No speech bubbles, no comic panels, no UI or text labels – only pure character and style reference art.`
+          ? `Generate a 3:4 vertical commercial Key Visual (KV) based on this description:\n${conceptPrompt}\n
+IMPORTANT:
+- The content/subject MUST be about: ${topic}.
+- Use "MATERIAL" images for shape/identity.
+- Use "STYLE" images for lighting/colors/rendering style.
+- High quality, professional photography or 3D render.`
+          : `Generate a 3:4 vertical Master Character Sheet based on this description:\n${conceptPrompt}\n
+IMPORTANT:
+- The character MUST be relevant to the topic: ${topic}.
+- Use "STYLE" images for drawing style (line weight, shading).
+- Clean neutral background.
+- The main character must be identical across future pages, so lock in a clear, repeatable face, hairstyle, body proportion and outfit.
+- Under or near the character, clearly render a small label with the character's name and an internal ID in the format "Name / CHAR_01". This label is part of the sheet and will be reused as a visual identity anchor.`
     }
   ];
 
-  // --- 4. 生成 2 张概念图（并行） ---
-  const generateOne = () =>
-    ai.models.generateContent({
+  const generateOne = () => {
+    safeLog("Concept Image Generation Request", imageGenerationParts);
+    return ai.models.generateContent({
       model: MODEL_IMAGE_GEN,
       contents: { parts: imageGenerationParts },
       config: {
@@ -352,6 +461,7 @@ Requirements:
         }
       }
     });
+  };
 
   const imageResponses = await Promise.all([generateOne(), generateOne()]);
 
@@ -511,6 +621,25 @@ ${JSON.stringify(ROLE_TEMPLATES, null, 2)}
 - 后续所有页面中的角色表现与线条/上色风格必须与该锚点保持一致。
 - analysis.bestReferenceIndex 在合理情况下应优先设为 0。
 
+【风格一致性 + 禁止换风格指令】
+- 所有页面的画风（线条粗细、上色方式、配色逻辑）必须与锚点图完全一致。
+- 在 description 中**禁止**出现以下类型的指令：
+  - “in the style of XX / 像某某画风”
+  - “仿照某某名画 / 漫画的画风”
+  - “这格改成写实风 / 水彩风 / 素描风”等。
+- 如果需要向某个作品“致敬”，只能描述为：
+  - 在保持同一漫画画风的前提下，借用该作品的**构图、元素或符号**，
+  - 不能改变线条风格、上色方式和整体配色逻辑。
+
+【角色一致性】
+- 整部漫画会使用一个或多个固定角色（主角、老师、精灵等）。
+- 当你在 description 中提到某个角色时（例如“主角”“Maco 仔”“老师”）：
+  - 均默认指向锚点图中定义好的角色形象或后续已出现过的稳定角色形象。
+  - 不允许在后续页面中随意改变该角色的脸型、五官、发型、服装结构。
+- 对同一角色，只允许在不同 Panel 中改变：
+  - 姿势、表情、镜头角度、手上的道具；
+  - 不允许变成另一个看起来明显不同的人。
+
 必须严格遵守以下规范：
 1. 结构：**第一页必须是「封面」(Cover)**，后续为「Page 1」「Page 2」等。
 2. 封面要求：包含大标题、核心角色亮相、具有吸引力的视觉海报感。
@@ -530,6 +659,13 @@ ${JSON.stringify(ROLE_TEMPLATES, null, 2)}
 - 你需要以第 0 张中的角色外观与画风为基准，统一后续所有页面的角色形象。
 - analysis.bestReferenceIndex 用于告诉后续出图流程：你认为哪一张参考图最能代表全局角色和画风，一般应为 0，除非有特殊原因。
 
+【角色描述规范】
+- 当你在 Panel 描述中提到主角或固定角色时，请显式写出类似语句：
+  - “同一位主角（与主概念图中的角色完全相同，只改变姿势和表情）……”
+  - “老师角色（保持与前一页中老师相同的脸型和服装）……”
+- 禁止只写“一个小男孩”“一个学生”而不指明是否为同一角色。
+- 这样做是为了帮助后续出图阶段锁定每一格中的角色身份。
+
 【输出要求】
 请生成一个 JSON 对象：
 1. analysis：
@@ -542,7 +678,8 @@ ${JSON.stringify(ROLE_TEMPLATES, null, 2)}
    - role：第一页必须是 "Cover"，后续依次为 "Page 1", "Page 2" 等。
    - description：详细描述这一页的分镜内容。
      * 对于 Cover：描述封面主图、标题位置、角色姿势、背景氛围。
-     * 对于 Page X：描述 Panel 1, Panel 2... 每一格的具体画面与情绪。
+     * 对于 Page X：描述 Panel 1, Panel 2... 每一格的具体画面与情绪；
+       在涉及角色时，需要指明“是否为同一主角/老师”等，以便后续保持脸型一致。
    - composition：描述页面布局（例如：上大下小三格、竖向分三栏等），并说明大致构图重心。
    - copywriting：本页出现的所有对话和旁白文本。语言：${outputLanguage}。
    - layout：描述文字框（对话气泡、旁白框）的典型位置和排列方式，保证阅读顺畅。
@@ -633,7 +770,6 @@ ${JSON.stringify(ROLE_TEMPLATES, null, 2)}
       inheritanceFocus: item.inheritanceFocus || []
     }));
 
-    // 缓存本次参考图与分析，用于后续 editGeneratedImage
     LAST_REFERENCE_IMAGES = referenceImages;
     LAST_ANALYSIS = analysis;
 
@@ -665,8 +801,9 @@ export const generateImageFromPlan = async (
     return referenceImages[0];
   })();
 
-  // 有上一张图即视为可用
-  const allowPreviousReference = !!previousImageBase64;
+  // 对漫画关闭“上一张图”参考，防止风格漂移复利；商业图仍然允许
+  const allowPreviousReference =
+    templateType === TemplateType.XIAOHONGSHU && !!previousImageBase64;
 
   let personaPrompt = "";
   let stylePrompt = "";
@@ -723,14 +860,19 @@ export const generateImageFromPlan = async (
   const fullPrompt = `
 ${personaPrompt}
 
-【全局视觉方向】${analysis
+【全局视觉方向】${
+    analysis
       ? `
 - 内容方向：${analysis.contentDirection || "（未提供）"}
-- 风格方向：${analysis.styleAnalysis || "（未提供）"}
+- 风格方向：严格参考【主概念图（Primary Reference）】。
 - 关键词：${analysis.keywords?.length ? analysis.keywords.join("，") : "（未提供）"}`
       : `
-- 风格：${templateType === TemplateType.SCIENCE_COMIC ? "标准科普漫画风格（以主概念图为准）" : "标准商业视觉风格（以主概念图为准）"}`
-    }
+- 风格：${
+          templateType === TemplateType.SCIENCE_COMIC
+            ? "标准科普漫画风格（以主概念图为准）"
+            : "标准商业视觉风格（以主概念图为准）"
+        }`
+  }
 
 【本张图片任务】
 - 序号：第 ${item.order} 张
@@ -748,14 +890,22 @@ ${stylePrompt}
 - 其他参考图：
   - 只用于补充光线、材质、场景或道具细节。
   - 不得改变主概念图所定义的角色身份和整体画风。
-${templateType === TemplateType.SCIENCE_COMIC ? "- 如果参考图是真实照片，只能提取角色特征和场景灵感，并以漫画/卡通风格呈现，与主概念图画风一致。" : ""}
+${
+  templateType === TemplateType.SCIENCE_COMIC
+    ? "- 如果参考图是真实照片，只能提取角色特征和场景灵感，并以漫画/卡通风格呈现，与主概念图画风一致。"
+    : ""
+}
 
-【上一张生成图的使用】
-- 如果提供上一张生成图（例如封面或上一页漫画）：
+${
+  templateType === TemplateType.XIAOHONGSHU
+    ? `【上一张生成图的使用】
+- 如果提供上一张生成图（例如封面或上一页商业图）：
   - 可以用于场景延续（背景结构、镜头角度、角色大致位置）和局部细节参考。
   - 可以帮助保持整个系列在**连贯的视觉语言**下发展（例如某些 recurring 道具、房间布局）。
   - 但角色的五官、服饰细节以及整体画风，仍然必须优先对齐主概念图。
-  - 不允许因为上一张图的偶然偏差而偏离主概念图的标准风格。
+  - 不允许因为上一张图的偶然偏差而偏离主概念图的标准风格。`
+    : ""
+}
 
 【文字与排版】
 - 策划文案：${item.copywriting || "（无文案）"}
@@ -763,10 +913,46 @@ ${templateType === TemplateType.SCIENCE_COMIC ? "- 如果参考图是真实照�
 - 请将这些文字真实渲染到画面上：
   - 商业图：以主标题、副标题、卖点短句等形式排版，和留白结构相匹配。
   - 漫画页：以对话气泡和旁白框的形式呈现，不要额外生成多余的大段文字。
-- 自动去掉「主标题」「Panel 1」等说明性前缀，只保留对话或旁白的实际内容。`;
+- 自动去掉「主标题」「Panel 1」等说明性前缀，只保留对话或旁白的实际内容。
+${
+  templateType === TemplateType.SCIENCE_COMIC
+    ? `
+【风格锁定总则（优先级最高，如与 description 冲突，一律以本条为准）】
+1. 即使 description 中出现诸如
+   - “in the style of ...”
+   - “仿照某某名画 / 漫画的画风”
+   - “改成写实风 / 水彩风 / 素描风”等，
+   你也**不得改变整体漫画画风**。
+2. 这类描述只能被理解为：
+   - 在保持主概念图画风的前提下，对构图、元素、图案、符号进行“致敬”或“引用”，
+   - 例如借用浪的形状、构图布局、象征性图标，但线条粗细、上色方式、配色逻辑全部保持和主概念图一致。
+3. 如果 description 与主概念图的风格要求发生冲突：
+   - 一律以「主概念图」的角色形象和画风为最高优先级，
+   - 忽略 description 中任何要求整体画风变成其他风格的指令。
+
+【角色一致性硬约束（逐格执行）】
+- 这一页中的所有“主角”或在 description 中被说明为“同一角色”的人物，必须是同一个角色：
+  - 与主概念图中的角色完全一致：
+    - 相同的发型、发色
+    - 相同的脸型和五官比例（眼睛大小、眉毛形状、脸的轮廓）
+    - 相同的服装主色和结构（帽子、衣服、裤子、鞋）
+  - 只允许改变：
+    - 姿势（站立、跳跃、指向、坐着）
+    - 表情（开心、惊讶、思考）
+    - 身体角度（正面、侧面、背面），但脸的设定不变。
+- 对每一个 Panel：
+  - 如果描述中出现主角或固定角色的名字/称呼：
+    - 必须将其画成主概念图中的同一角色，而不是新设计一个相似人物。
+  - 如果某个 Panel 只需要信息图（地图、剖面图、证书等）：
+    - 允许没有角色，或者只有小剪影，但不能在这里创造新的主角形象。`
+    : ""
+}
+`;
 
   console.log(
-    `[Image ${item.order} Prompt] (${templateType}) primaryRef=${primaryReference?.id || "none"}, allowPrevious=${allowPreviousReference}`
+    `[Image ${item.order} Prompt] (${templateType}) primaryRef=${
+      primaryReference?.id || "none"
+    }, allowPrevious=${allowPreviousReference}，bestReferenceId=${analysis?.bestReferenceId}`
   );
 
   // --- 构建 parts：核心参考图优先，其次其他参考图，最后（可选）上一张图 ---
@@ -805,7 +991,7 @@ ${templateType === TemplateType.SCIENCE_COMIC ? "- 如果参考图是真实照�
       });
     });
 
-    // 上一张生成图（如封面或上一页）
+    // 上一张生成图（如封面或上一页）——仅商业图使用
     if (opts.includePrevious && allowPreviousReference && previousImageBase64) {
       parts.push({
         inlineData: {
@@ -826,6 +1012,7 @@ ${templateType === TemplateType.SCIENCE_COMIC ? "- 如果参考图是真实照�
   };
 
   const attemptGeneration = async (parts: any[]) => {
+    safeLog(`Generating Image ${item.order} (${item.role})`, parts);
     const response = await ai.models.generateContent({
       model: MODEL_IMAGE_GEN,
       contents: { parts },
@@ -845,8 +1032,10 @@ ${templateType === TemplateType.SCIENCE_COMIC ? "- 如果参考图是真实照�
   let attempt = 0;
   const maxRetries = 3;
 
-  // 优先用「主概念图 + （可选）上一张图」
-  while (attempt < maxRetries) {
+  // 对商业图：优先用「主概念图 + （可选）上一张图」
+  const shouldTryPrevious = templateType === TemplateType.XIAOHONGSHU;
+
+  while (attempt < maxRetries && shouldTryPrevious) {
     try {
       const parts = buildParts({ includePrevious: true });
       return await attemptGeneration(parts);
@@ -860,7 +1049,7 @@ ${templateType === TemplateType.SCIENCE_COMIC ? "- 如果参考图是真实照�
     }
   }
 
-  // 如果前面都失败，去掉上一张图，只用参考图
+  // 对漫画，或商业图 fallback：去掉上一张图，只用参考图
   try {
     const parts = buildParts({ includePrevious: false });
     return await attemptGeneration(parts);
@@ -876,7 +1065,6 @@ export const editGeneratedImage = async (
 ): Promise<string> => {
   const ai = getClient();
 
-  // 使用最近一次 generatePlan 缓存的参考图与分析
   const refs: ReferenceImage[] = Array.isArray(LAST_REFERENCE_IMAGES) ? LAST_REFERENCE_IMAGES : [];
   const analysis = LAST_ANALYSIS;
 
@@ -949,6 +1137,8 @@ ${instruction}
 - 保持画幅比例 3:4。
 `
   });
+
+  safeLog("Edit Image Request", parts);
 
   const response = await ai.models.generateContent({
     model: MODEL_IMAGE_GEN,
