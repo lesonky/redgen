@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { Loader2, CheckCircle2, RefreshCw, Image as ImageIcon, ArrowRight, ArrowLeft } from 'lucide-react';
+import { Loader2, CheckCircle2, RefreshCw, Image as ImageIcon, ArrowRight, ArrowLeft, Info } from 'lucide-react';
 import { GeneratedImage, ImagePlanItem, TemplateType } from '../../types';
 
 interface GenerateStepProps {
@@ -72,6 +72,11 @@ const GenerateStep: React.FC<GenerateStepProps> = ({
             <div className="hidden md:block">
                 <h3 className="text-lg font-bold text-slate-800">Generating Set</h3>
                 <p className="text-slate-500 text-sm font-medium">Image {Math.min(currentGeneratingIndex + 1, plan.length)} of {plan.length}</p>
+            </div>
+
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs text-slate-500 text-left flex gap-2">
+                 <Info className="w-3.5 h-3.5 flex-shrink-0 mt-0.5 text-slate-400" />
+                 <p className="opacity-90">生成图片角色可能有误差，等任务完成后，可以重新生成。</p>
             </div>
 
             {isGenerating ? (
