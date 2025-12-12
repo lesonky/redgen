@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { GeneratedImage, TemplateType } from '../../types';
+import { GeneratedImage, TemplateType, AspectRatio } from '../../types';
 import { Download, Check, Loader2, RotateCcw, ArrowLeft, Share2 } from 'lucide-react';
 import JSZip from 'jszip';
 
@@ -8,9 +8,10 @@ interface ExportStepProps {
   onReset: () => void;
   onBack: () => void;
   selectedTemplate: TemplateType;
+  aspectRatio: AspectRatio;
 }
 
-const ExportStep: React.FC<ExportStepProps> = ({ images, onReset, onBack, selectedTemplate }) => {
+const ExportStep: React.FC<ExportStepProps> = ({ images, onReset, onBack, selectedTemplate, aspectRatio }) => {
   const [isZipping, setIsZipping] = useState(false);
   
   const downloadAll = async () => {
@@ -46,10 +47,12 @@ const ExportStep: React.FC<ExportStepProps> = ({ images, onReset, onBack, select
      }
   };
 
-  const themeColor = selectedTemplate === TemplateType.SCIENCE_COMIC ? 'blue' : 'red';
+  const themeColor = selectedTemplate === TemplateType.SCIENCE_COMIC ? 'blue' : selectedTemplate === TemplateType.PPT ? 'orange' : 'red';
   const themeGradient = selectedTemplate === TemplateType.SCIENCE_COMIC 
     ? 'from-blue-500 to-indigo-600' 
-    : 'from-red-500 to-pink-600';
+    : selectedTemplate === TemplateType.PPT
+        ? 'from-orange-500 to-amber-600'
+        : 'from-red-500 to-pink-600';
 
   return (
     <div className="flex flex-col h-full w-full bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden relative">
@@ -70,7 +73,7 @@ const ExportStep: React.FC<ExportStepProps> = ({ images, onReset, onBack, select
                 {/* Grid Preview */}
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 p-6 bg-slate-50 rounded-3xl border border-slate-100 w-full">
                     {images.map((img, idx) => (
-                        <div key={img.id} className="aspect-[3/4] bg-white rounded-xl overflow-hidden shadow-sm relative group border border-slate-100 transform transition-transform hover:-translate-y-1 hover:shadow-md">
+                        <div key={img.id} className="bg-white rounded-xl overflow-hidden shadow-sm relative group border border-slate-100 transform transition-transform hover:-translate-y-1 hover:shadow-md" style={{ aspectRatio: aspectRatio.replace(':', '/') }}>
                             <img src={img.imageUrl} alt="" className="w-full h-full object-cover" />
                             <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />
                             <div className="absolute bottom-2 left-2 bg-black/60 text-white text-[10px] px-2 py-1 rounded-md backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity font-bold">

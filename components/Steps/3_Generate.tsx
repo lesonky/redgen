@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { Loader2, CheckCircle2, RefreshCw, Image as ImageIcon, ArrowRight, ArrowLeft, Info } from 'lucide-react';
-import { GeneratedImage, ImagePlanItem, TemplateType } from '../../types';
+import { GeneratedImage, ImagePlanItem, TemplateType, AspectRatio } from '../../types';
 
 interface GenerateStepProps {
   plan: ImagePlanItem[];
@@ -11,6 +11,7 @@ interface GenerateStepProps {
   onBack: () => void;
   onRegenerate: (index: number) => void;
   selectedTemplate: TemplateType;
+  aspectRatio: AspectRatio;
 }
 
 const GenerateStep: React.FC<GenerateStepProps> = ({
@@ -21,7 +22,8 @@ const GenerateStep: React.FC<GenerateStepProps> = ({
   onContinue,
   onBack,
   onRegenerate,
-  selectedTemplate
+  selectedTemplate,
+  aspectRatio
 }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -32,10 +34,12 @@ const GenerateStep: React.FC<GenerateStepProps> = ({
   }, [generatedImages.length, currentGeneratingIndex]);
 
   const progress = Math.round((generatedImages.length / plan.length) * 100);
-  const themeColor = selectedTemplate === TemplateType.SCIENCE_COMIC ? 'blue' : 'red';
+  const themeColor = selectedTemplate === TemplateType.SCIENCE_COMIC ? 'blue' : selectedTemplate === TemplateType.PPT ? 'orange' : 'red';
   const themeGradient = selectedTemplate === TemplateType.SCIENCE_COMIC 
     ? 'from-blue-500 to-indigo-600' 
-    : 'from-red-500 to-pink-600';
+    : selectedTemplate === TemplateType.PPT
+        ? 'from-orange-500 to-amber-600'
+        : 'from-red-500 to-pink-600';
 
   return (
     <div className="flex flex-col md:flex-row h-full w-full gap-4 md:gap-8 overflow-hidden animate-fade-in">
@@ -137,7 +141,7 @@ const GenerateStep: React.FC<GenerateStepProps> = ({
 
         {generatedImages.map((img, idx) => (
             <div key={img.id} className="flex flex-col gap-3 animate-fade-in-up group z-10">
-                <div className="w-full aspect-[3/4] bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden relative transition-transform hover:shadow-xl hover:-translate-y-1">
+                <div className="w-full bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden relative transition-transform hover:shadow-xl hover:-translate-y-1" style={{ aspectRatio: aspectRatio.replace(':', '/') }}>
                     <img 
                         src={img.imageUrl} 
                         alt={`Generated ${idx}`} 
@@ -178,7 +182,7 @@ const GenerateStep: React.FC<GenerateStepProps> = ({
 
         {isGenerating && (
             <div className="flex flex-col gap-3 opacity-70 z-10">
-                 <div className="w-full aspect-[3/4] bg-slate-200/50 rounded-2xl border-2 border-dashed border-slate-300 flex flex-col items-center justify-center gap-4 animate-pulse">
+                 <div className="w-full bg-slate-200/50 rounded-2xl border-2 border-dashed border-slate-300 flex flex-col items-center justify-center gap-4 animate-pulse" style={{ aspectRatio: aspectRatio.replace(':', '/') }}>
                     <div className="p-4 bg-white rounded-full shadow-sm">
                         <Loader2 className="w-8 h-8 text-slate-400 animate-spin" />
                     </div>

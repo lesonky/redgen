@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { GeneratedImage, TemplateType } from '../../types';
+import { GeneratedImage, TemplateType, AspectRatio } from '../../types';
 import { Download, MessageSquare, Send, Loader2, Sparkles, User, ArrowRight, ArrowLeft } from 'lucide-react';
 import { editGeneratedImage } from '../../services/gemini';
 
@@ -9,9 +9,10 @@ interface EditorStepProps {
   onFinish: () => void;
   onBack: () => void;
   selectedTemplate: TemplateType;
+  aspectRatio: AspectRatio;
 }
 
-const EditorStep: React.FC<EditorStepProps> = ({ images, setImages, onFinish, onBack, selectedTemplate }) => {
+const EditorStep: React.FC<EditorStepProps> = ({ images, setImages, onFinish, onBack, selectedTemplate, aspectRatio }) => {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [chatInput, setChatInput] = useState("");
   const [isEditing, setIsEditing] = useState(false);
@@ -38,7 +39,7 @@ const EditorStep: React.FC<EditorStepProps> = ({ images, setImages, onFinish, on
     setChatInput("");
 
     try {
-        const newBase64 = await editGeneratedImage(selectedImage.base64Data, prompt);
+        const newBase64 = await editGeneratedImage(selectedImage.base64Data, prompt, aspectRatio);
         const newImageUrl = `data:image/jpeg;base64,${newBase64}`;
 
         setImages(prev => prev.map(img => {
@@ -60,10 +61,12 @@ const EditorStep: React.FC<EditorStepProps> = ({ images, setImages, onFinish, on
     }
   };
 
-  const themeColor = selectedTemplate === TemplateType.SCIENCE_COMIC ? 'blue' : 'red';
+  const themeColor = selectedTemplate === TemplateType.SCIENCE_COMIC ? 'blue' : selectedTemplate === TemplateType.PPT ? 'orange' : 'red';
   const themeGradient = selectedTemplate === TemplateType.SCIENCE_COMIC 
     ? 'from-blue-500 to-indigo-600' 
-    : 'from-red-500 to-pink-600';
+    : selectedTemplate === TemplateType.PPT
+        ? 'from-orange-500 to-amber-600'
+        : 'from-red-500 to-pink-600';
 
   return (
     <div className="h-full flex flex-col gap-4 md:gap-6 animate-fade-in w-full">
@@ -76,7 +79,7 @@ const EditorStep: React.FC<EditorStepProps> = ({ images, setImages, onFinish, on
                 <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'radial-gradient(#ffffff 1px, transparent 1px)', backgroundSize: '32px 32px' }}></div>
                 
                 {selectedImage ? (
-                    <div className="relative max-w-full max-h-full aspect-[3/4] shadow-2xl rounded-sm overflow-hidden ring-1 ring-white/10 transition-all bg-black">
+                    <div className="relative max-w-full max-h-full shadow-2xl rounded-sm overflow-hidden ring-1 ring-white/10 transition-all bg-black" style={{ aspectRatio: aspectRatio.replace(':', '/') }}>
                         <img src={selectedImage.imageUrl} alt="Editing" className="w-full h-full object-contain" />
                         
                         {/* Status Overlay */}
@@ -186,10 +189,11 @@ const EditorStep: React.FC<EditorStepProps> = ({ images, setImages, onFinish, on
                     <button 
                         key={img.id}
                         onClick={() => setSelectedId(img.id)}
-                        className={`flex-shrink-0 relative group h-20 md:h-24 aspect-[3/4] rounded-lg overflow-hidden border-2 transition-all duration-200
+                        className={`flex-shrink-0 relative group h-20 md:h-24 rounded-lg overflow-hidden border-2 transition-all duration-200
                         ${selectedId === img.id 
                             ? `border-${themeColor}-500 ring-2 ring-${themeColor}-500 ring-offset-2 scale-105 shadow-md z-10` 
                             : 'border-transparent hover:border-slate-300 opacity-80 hover:opacity-100'}`}
+                        style={{ aspectRatio: aspectRatio.replace(':', '/') }}
                     >
                         <img src={img.imageUrl} alt="" className="w-full h-full object-cover" />
                         <div className="absolute inset-x-0 bottom-0 bg-black/50 p-1 text-center">

@@ -2,13 +2,14 @@
 export const MODEL_TEXT_REASONING = "gemini-3-pro-preview";
 export const MODEL_IMAGE_GEN = "gemini-3-pro-image-preview";
 
-// --- ROLE TEMPLATES (Xiaohongshu Commercial) ---
+// --- ROLE TEMPLATES ---
 export type RoleTemplate = {
   description: string;
   creativeFocus: string;
   outputGuide: string[];
 };
 
+// Xiaohongshu Roles
 export const ROLE_TEMPLATES: Record<string, RoleTemplate> = {
   // --- Type E: 品牌商业 / 新中式 / 高级产品 ---
   封面大片: {
@@ -83,8 +84,7 @@ export const ROLE_TEMPLATES: Record<string, RoleTemplate> = {
       "可以仅有一个小图标或小产品缩略图，不要塞太多元素"
     ]
   },
-
-  // --- Type A, B, C, D (Condensed) ---
+  // ... (keeping other XHS roles for backward compatibility if needed, though they were condensed in prompt)
   人物展示: {
     description: "人物半身或胸像展示，突出脸部与上身细节。",
     creativeFocus: "强调人物气质、妆容、配饰或与产品的关系。",
@@ -168,3 +168,216 @@ export const ROLE_TEMPLATES: Record<string, RoleTemplate> = {
 };
 
 export const XIAOHONGSHU_PLAN_ROLES = Object.keys(ROLE_TEMPLATES);
+
+// PPT Roles
+export const PPT_ROLE_TEMPLATES: Record<string, RoleTemplate> = {
+  // ========= 开场结构 =========
+
+  封面页: {
+    description: "整场演讲的主题封面页面",
+    creativeFocus: "统一视觉风格，清晰传达主题信息",
+    outputGuide: [
+      "主标题居中或强对齐摆放，字号远大于其他文字",
+      "背景风格与主题气质一致，但不抢标题注意力",
+      "如有副标题/姓名/日期/Logo，排版规整且不喧宾夺主"
+    ]
+  },
+
+  目录页: {
+    description: "展示演讲大纲或议程结构的页面",
+    creativeFocus: "让观众一眼看懂演讲结构与节奏",
+    outputGuide: [
+      "列出 3–6 个一级章节标题，分点排列",
+      "可搭配序号或图标，保证对齐一致",
+      "整体留白充足，不要塞满所有空间"
+    ]
+  },
+
+  过渡页: {
+    description: "章节切换时使用的 Section Header 页面",
+    creativeFocus: "在章节之间创造视觉停顿，强调新主题",
+    outputGuide: [
+      "使用与正文页明显对比的背景色或大色块",
+      "章节编号与标题采用超大字号，形成视觉锚点",
+      "内容简洁，仅保留编号、标题，避免冗余文字"
+    ]
+  },
+
+  // ========= 核心内容结构 =========
+
+  关键信息页: {
+    description: "用一页表达一个核心观点的页面",
+    creativeFocus: "用一句话打穿本节主旨，便于记忆与引用",
+    outputGuide: [
+      "主标题为一句完整观点句，不超过一行",
+      "下方配 1–2 行简短补充说明，支持解释主张",
+      "可用轻量图标/色块在一侧做视觉点缀，避免喧宾夺主"
+    ]
+  },
+
+  三栏重点页: {
+    description: "并列展示三个核心亮点或卖点的页面",
+    creativeFocus: "结构稳固，突出“3 大重点”的并列关系",
+    outputGuide: [
+      "采用三列对齐布局，每列结构保持一致",
+      "每列包括图标 + 简短标题 + 一句描述",
+      "三列之间间距适中，整体视觉均衡不拥挤"
+    ]
+  },
+
+  图文内容页: {
+    description: "图文组合展示解释说明内容的页面",
+    creativeFocus: "用图片承载情绪与场景，文字负责说明逻辑",
+    outputGuide: [
+      "采用左图右文或上图下文结构，图片占画面 40–60%",
+      "标题 + 简短正文 + 列表要点，注意层级清晰",
+      "所有段落左对齐，行距适中，避免大段密集文字"
+    ]
+  },
+
+  数据图表页: {
+    description: "用图表展示数据与趋势的页面",
+    creativeFocus: "让数据一眼可读，观点一目了然",
+    outputGuide: [
+      "一页建议只放 1–2 个主图表，避免信息过载",
+      "关键数据/对比项使用颜色或加粗高亮标出",
+      "图表下方可配一句洞察总结，概括结论"
+    ]
+  },
+
+  表格信息页: {
+    description: "以表格形式呈现结构化信息的页面",
+    creativeFocus: "便于横向对比、纵向浏览多项数据",
+    outputGuide: [
+      "表格列数控制在 3–6 列，行数控制在 3–8 行",
+      "表头简洁清晰，可使用浅色底或加粗区分",
+      "关键行或关键值使用高亮色或加粗强调"
+    ]
+  },
+
+  流程页: {
+    description: "展示步骤、流程或逻辑链路的页面",
+    creativeFocus: "让观众一眼看懂“先后顺序”和“因果关系”",
+    outputGuide: [
+      "使用箭头或编号连接 3–6 个步骤/节点",
+      "每个步骤文字保持一行或两行，避免长段落",
+      "流程方向保持统一（例如由左到右或由上到下）"
+    ]
+  },
+
+  时间线页: {
+    description: "展示时间序列与阶段规划的页面",
+    creativeFocus: "清楚展示过去进展或未来路线图",
+    outputGuide: [
+      "时间轴水平或垂直排布，每个节点间距均匀",
+      "节点标题简短，配一行说明即可",
+      "可用图标或颜色区分“过去 / 当前 / 未来”"
+    ]
+  },
+
+  对比页: {
+    description: "用于 A/B 方案、竞品或前后变化对比的页面",
+    creativeFocus: "重点突出差异与优劣，而非堆砌信息",
+    outputGuide: [
+      "采用左右或上下双栏结构，对称排布",
+      "每栏列出 3–5 条要点，对应关系一目了然",
+      "关键差异使用高亮标记或图标强调"
+    ]
+  },
+
+  案例展示页: {
+    description: "展示项目案例、成功经验或典型场景的页面",
+    creativeFocus: "用“背景–行动–结果”结构讲清一个故事",
+    outputGuide: [
+      "上方一句话概括案例背景",
+      "中部用 2–4 条列点描述行动/做法",
+      "下方用数字或关键句总结结果与价值"
+    ]
+  },
+
+  SWOT分析页: {
+    description: "展示优势/劣势/机会/威胁四象限的分析页面",
+    creativeFocus: "结构化呈现战略判断与内外部形势",
+    outputGuide: [
+      "四象限布局清晰标注 S/W/O/T",
+      "每个象限列出 2–5 条简短要点",
+      "可用轻微配色区分象限，但整体风格要统一"
+    ]
+  },
+
+  矩阵图标页: {
+    description: "以网格形式展示功能点、模块或对象集合的页面",
+    creativeFocus: "帮助快速浏览多个要素，形成系统感",
+    outputGuide: [
+      "采用 2×3、3×3 等规则网格布局",
+      "每个单元包含图标 + 标签文字",
+      "图标风格和尺寸统一，整体对齐干净"
+    ]
+  },
+
+  拼贴图集页: {
+    description: "多张图片拼贴的视觉展示页面",
+    creativeFocus: "通过多图组合营造情绪或展示多案例",
+    outputGuide: [
+      "一页放置 4–9 张图片，大小可略有变化",
+      "整体色调尽量统一或相互协调",
+      "文字极少，必要时仅保留标题或简单说明"
+    ]
+  },
+
+  // ========= 强调句 / 情绪 / 场景 =========
+
+  观点金句页: {
+    description: "放大核心观点或名言警句的页面",
+    creativeFocus: "让文字本身成为视觉中心",
+    outputGuide: [
+      "整页只保留一句主文案，字号远大于平常正文",
+      "背景保持极简，可用纯色或轻微纹理",
+      "去除不必要装饰，保证视线不被分散"
+    ]
+  },
+
+  全图背景页: {
+    description: "使用一张大图铺满作为背景，配少量文字的页面",
+    creativeFocus: "用画面营造氛围，用简短文字点题",
+    outputGuide: [
+      "图片铺满全屏，主体区域清晰可识别",
+      "文字控制在一行或两行，放在不遮挡主体的位置",
+      "必要时为文字加深色蒙版或描边以保证可读性"
+    ]
+  },
+
+  FAQ页: {
+    description: "集中展示常见问题与解答的页面",
+    creativeFocus: "提前回应受众疑虑，提升说服力",
+    outputGuide: [
+      "列出 3–5 个最关键的问题",
+      "每个回答保持简洁，控制在一行或两行",
+      "使用 Q / A 标识、图标或排版区分问题与答案"
+    ]
+  },
+
+  // ========= 收尾结构 =========
+
+  总结页: {
+    description: "对全场内容进行回顾与提炼的页面",
+    creativeFocus: "用清晰结构帮助观众带走关键信息",
+    outputGuide: [
+      "列出 3–5 条核心结论或 Key Takeaways",
+      "每条要点保持一句话，避免引入新内容",
+      "可在底部附上一句总括性收尾语"
+    ]
+  },
+
+  结束页: {
+    description: "作为结束致谢或 Q&A 引导的页面",
+    creativeFocus: "礼貌收束，同时留下后续联系渠道",
+    outputGuide: [
+      "主文案为“Thank You”“Q&A”或简洁致谢语",
+      "保留清晰的联系方式，如邮箱、二维码、社媒账号",
+      "整体风格与封面呼应，避免信息过多造成尾声疲劳"
+    ]
+  }
+};
+
+export const PPT_PLAN_ROLES = Object.keys(PPT_ROLE_TEMPLATES);

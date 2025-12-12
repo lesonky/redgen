@@ -47,10 +47,12 @@ const PlanStep: React.FC<PlanStepProps> = ({ plan, setPlan, analysis, onNext, on
     setEditForm(prev => ({ ...prev, [field]: value }));
   };
 
-  const themeColor = selectedTemplate === TemplateType.SCIENCE_COMIC ? 'blue' : 'red';
+  const themeColor = selectedTemplate === TemplateType.SCIENCE_COMIC ? 'blue' : selectedTemplate === TemplateType.PPT ? 'orange' : 'red';
   const themeGradient = selectedTemplate === TemplateType.SCIENCE_COMIC 
     ? 'from-blue-500 to-indigo-600' 
-    : 'from-red-500 to-pink-600';
+    : selectedTemplate === TemplateType.PPT
+        ? 'from-orange-500 to-amber-600'
+        : 'from-red-500 to-pink-600';
 
   return (
     <div className="flex flex-col h-full w-full bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden relative">

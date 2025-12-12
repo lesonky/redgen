@@ -1,17 +1,24 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { X, Image as ImageIcon, Sparkles, PenTool, Plus, ScanLine, BrainCircuit, Wand2, Globe, ShoppingBag, BookOpen, Palette, ArrowRight, UploadCloud, CheckCircle2 } from 'lucide-react';
-import { ReferenceImage, TemplateType } from '../../types';
-import { fileToGenerativePart } from '../../services/gemini';
+import { X, Image as ImageIcon, Sparkles, PenTool, Plus, ScanLine, BrainCircuit, Wand2, Globe, ShoppingBag, BookOpen, Palette, ArrowRight, UploadCloud, CheckCircle2, Presentation, Ratio, Layers, AlignLeft, Loader2 } from 'lucide-react';
+import { ReferenceImage, TemplateType, AspectRatio } from '../../types';
+import { fileToGenerativePart, generateInputSuggestions } from '../../services/gemini';
 
 interface InputProps {
-  topic: string;
-  setTopic: (t: string) => void;
+  mainTopic: string;
+  setMainTopic: (t: string) => void;
+  styleInput: string;
+  setStyleInput: (t: string) => void;
+  contentInput: string;
+  setContentInput: (t: string) => void;
+  
   referenceImages: ReferenceImage[];
   setReferenceImages: React.Dispatch<React.SetStateAction<ReferenceImage[]>>;
   selectedTemplate: TemplateType;
   setSelectedTemplate: (t: TemplateType) => void;
   outputLanguage: string;
   setOutputLanguage: (l: string) => void;
+  aspectRatio: AspectRatio;
+  setAspectRatio: (r: AspectRatio) => void;
   onNext: () => void;
   isProcessing: boolean;
   hasGeneratedConcepts?: boolean;
@@ -34,15 +41,24 @@ const LANGUAGES = [
     "Custom"
 ];
 
+const ASPECT_RATIOS: AspectRatio[] = ["3:4", "9:16", "1:1", "4:3", "16:9"];
+
 export const InputStep: React.FC<InputProps> = ({
-  topic,
-  setTopic,
+  mainTopic,
+  setMainTopic,
+  styleInput,
+  setStyleInput,
+  contentInput,
+  setContentInput,
+
   referenceImages,
   setReferenceImages,
   selectedTemplate,
   setSelectedTemplate,
   outputLanguage,
   setOutputLanguage,
+  aspectRatio,
+  setAspectRatio,
   onNext,
   isProcessing,
   hasGeneratedConcepts = false,
@@ -52,6 +68,7 @@ export const InputStep: React.FC<InputProps> = ({
   const [dragActive, setDragActive] = useState(false);
   const [analysisStepIndex, setAnalysisStepIndex] = useState(0);
   const [isCustomLang, setIsCustomLang] = useState(false);
+  const [isAutoFilling, setIsAutoFilling] = useState(false);
 
   // Simulation of analysis steps
   useEffect(() => {
@@ -126,11 +143,66 @@ export const InputStep: React.FC<InputProps> = ({
       }
   };
 
+  const handleTemplateSelect = (template: TemplateType) => {
+      setSelectedTemplate(template);
+      // Auto-set default aspect ratio based on template
+      if (template === TemplateType.XIAOHONGSHU || template === TemplateType.SCIENCE_COMIC) {
+          setAspectRatio("3:4");
+      } else if (template === TemplateType.PPT) {
+          setAspectRatio("16:9");
+      }
+  };
+
+  const handleAutoFill = async () => {
+    if (!mainTopic.trim() && referenceImages.length === 0) {
+        alert("Please enter a Topic or upload an image first.");
+        return;
+    }
+    
+    setIsAutoFilling(true);
+    try {
+        const result = await generateInputSuggestions(mainTopic, referenceImages, selectedTemplate);
+        if (result.style) setStyleInput(result.style);
+        if (result.content) setContentInput(result.content);
+    } catch (e) {
+        console.error(e);
+        alert("Failed to auto-generate suggestions.");
+    } finally {
+        setIsAutoFilling(false);
+    }
+  };
+
+  const getPlaceholders = () => {
+    switch (selectedTemplate) {
+        case TemplateType.SCIENCE_COMIC:
+            return {
+                topic: "e.g., Photosynthesis Process",
+                style: "e.g., Western cartoon style, thick outlines, bright colors",
+                content: "e.g., Sunlight, Water molecules, Oxygen bubbles, Chloroplast characters"
+            };
+        case TemplateType.PPT:
+            return {
+                topic: "e.g., AI Technology Trends in 2025",
+                style: "e.g., Tech Blue, Futuristic, Clean, Minimalist",
+                content: "e.g., Introduction, LLM architecture, Agent workflows, Future outlook"
+            };
+        default: // Xiaohongshu
+            return {
+                topic: "e.g., A minimalist home office setup",
+                style: "e.g., Warm lighting, beige tones, wooden texture, cozy atmosphere",
+                content: "e.g., Wooden desk, ceramic coffee cup, laptop, green plant"
+            };
+    }
+  };
+
+  const ph = getPlaceholders();
   const CurrentIcon = ANALYSIS_STEPS[analysisStepIndex].icon;
-  const themeColor = selectedTemplate === TemplateType.SCIENCE_COMIC ? 'blue' : 'red';
+  const themeColor = selectedTemplate === TemplateType.SCIENCE_COMIC ? 'blue' : selectedTemplate === TemplateType.PPT ? 'orange' : 'red';
   const themeGradient = selectedTemplate === TemplateType.SCIENCE_COMIC 
     ? 'from-blue-500 to-indigo-600' 
-    : 'from-red-500 to-pink-600';
+    : selectedTemplate === TemplateType.PPT
+        ? 'from-orange-500 to-amber-600'
+        : 'from-red-500 to-pink-600';
 
   return (
     <div className="flex flex-col h-full w-full bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden relative animate-fade-in">
@@ -148,9 +220,9 @@ export const InputStep: React.FC<InputProps> = ({
                 </div>
 
                 {/* 1. Style Selection Cards */}
-                <div className="grid md:grid-cols-2 gap-6">
+                <div className="grid md:grid-cols-3 gap-6">
                      <button 
-                        onClick={() => setSelectedTemplate(TemplateType.XIAOHONGSHU)}
+                        onClick={() => handleTemplateSelect(TemplateType.XIAOHONGSHU)}
                         className={`relative p-6 rounded-2xl border-2 text-left transition-all duration-300 flex flex-col gap-4 group
                         ${selectedTemplate === TemplateType.XIAOHONGSHU 
                             ? 'border-red-500 bg-red-50/30 ring-4 ring-red-500/10 shadow-lg' 
@@ -161,7 +233,7 @@ export const InputStep: React.FC<InputProps> = ({
                         </div>
                         <div>
                             <h3 className={`text-lg font-bold ${selectedTemplate === TemplateType.XIAOHONGSHU ? 'text-red-900' : 'text-slate-700'}`}>Commercial</h3>
-                            <p className="text-sm text-slate-500 mt-1">Product showcases, brand storytelling, and lifestyle aesthetics.</p>
+                            <p className="text-xs text-slate-500 mt-1">Product, Lifestyle, Brand Visuals.</p>
                         </div>
                         {selectedTemplate === TemplateType.XIAOHONGSHU && (
                             <div className="absolute top-4 right-4 text-red-500"><CheckCircle2 className="w-6 h-6" /></div>
@@ -169,7 +241,26 @@ export const InputStep: React.FC<InputProps> = ({
                      </button>
 
                      <button 
-                        onClick={() => setSelectedTemplate(TemplateType.SCIENCE_COMIC)}
+                        onClick={() => handleTemplateSelect(TemplateType.PPT)}
+                        className={`relative p-6 rounded-2xl border-2 text-left transition-all duration-300 flex flex-col gap-4 group
+                        ${selectedTemplate === TemplateType.PPT 
+                            ? 'border-orange-500 bg-orange-50/30 ring-4 ring-orange-500/10 shadow-lg' 
+                            : 'border-slate-200 hover:border-orange-200 hover:bg-slate-50'}`}
+                     >
+                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center transition-colors ${selectedTemplate === TemplateType.PPT ? 'bg-orange-500 text-white' : 'bg-slate-100 text-slate-400 group-hover:text-orange-500'}`}>
+                            <Presentation className="w-6 h-6" />
+                        </div>
+                        <div>
+                            <h3 className={`text-lg font-bold ${selectedTemplate === TemplateType.PPT ? 'text-orange-900' : 'text-slate-700'}`}>PPT Slides</h3>
+                            <p className="text-xs text-slate-500 mt-1">Presentation Deck, Tech, Business.</p>
+                        </div>
+                        {selectedTemplate === TemplateType.PPT && (
+                            <div className="absolute top-4 right-4 text-orange-500"><CheckCircle2 className="w-6 h-6" /></div>
+                        )}
+                     </button>
+
+                     <button 
+                        onClick={() => handleTemplateSelect(TemplateType.SCIENCE_COMIC)}
                         className={`relative p-6 rounded-2xl border-2 text-left transition-all duration-300 flex flex-col gap-4 group
                         ${selectedTemplate === TemplateType.SCIENCE_COMIC 
                             ? 'border-blue-500 bg-blue-50/30 ring-4 ring-blue-500/10 shadow-lg' 
@@ -179,8 +270,8 @@ export const InputStep: React.FC<InputProps> = ({
                             <BookOpen className="w-6 h-6" />
                         </div>
                         <div>
-                            <h3 className={`text-lg font-bold ${selectedTemplate === TemplateType.SCIENCE_COMIC ? 'text-blue-900' : 'text-slate-700'}`}>Science Comic</h3>
-                            <p className="text-sm text-slate-500 mt-1">Educational panels, consistent characters, and clear storytelling.</p>
+                            <h3 className={`text-lg font-bold ${selectedTemplate === TemplateType.SCIENCE_COMIC ? 'text-blue-900' : 'text-slate-700'}`}>Comic</h3>
+                            <p className="text-xs text-slate-500 mt-1">Education, Storyboard, Panels.</p>
                         </div>
                         {selectedTemplate === TemplateType.SCIENCE_COMIC && (
                             <div className="absolute top-4 right-4 text-blue-500"><CheckCircle2 className="w-6 h-6" /></div>
@@ -188,52 +279,117 @@ export const InputStep: React.FC<InputProps> = ({
                      </button>
                 </div>
 
-                {/* 2. Topic Input Area */}
-                <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                         <label className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                            <PenTool className={`w-4 h-4 text-${themeColor}-500`} /> Project Topic
-                         </label>
+                {/* 2. Topic Input Area - Split into 3 */}
+                <div className="space-y-6">
+                    {/* Header Row with Selectors */}
+                    <div className="flex flex-wrap items-center justify-between gap-y-2">
+                         <div className="flex items-center gap-3">
+                             <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                                <PenTool className={`w-4 h-4 text-${themeColor}-500`} /> Project Details
+                             </h3>
+                             
+                             <button
+                                onClick={handleAutoFill}
+                                disabled={isAutoFilling || (!mainTopic.trim() && referenceImages.length === 0)}
+                                className={`text-[10px] font-bold px-2.5 py-1 rounded-full flex items-center gap-1.5 transition-all
+                                ${!mainTopic.trim() && referenceImages.length === 0 
+                                    ? 'bg-slate-100 text-slate-400 cursor-not-allowed' 
+                                    : `bg-${themeColor}-50 text-${themeColor}-600 hover:bg-${themeColor}-100 border border-${themeColor}-200`}`}
+                                title="Auto-generate Style & Content based on Topic"
+                             >
+                                {isAutoFilling ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+                                Auto-Fill with AI
+                             </button>
+                         </div>
                          
-                         {/* Language Selector */}
-                         <div className="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-lg transition-colors cursor-pointer group-focus-within:ring-2">
-                                <Globe className="w-3.5 h-3.5 text-slate-500" />
-                                {isCustomLang ? (
-                                    <input 
-                                        type="text" 
-                                        value={outputLanguage}
-                                        onChange={(e) => setOutputLanguage(e.target.value)}
-                                        placeholder="Language..."
-                                        className="text-xs bg-transparent border-none outline-none w-24 text-slate-700 placeholder:text-slate-400 font-medium"
-                                        autoFocus
-                                    />
-                                ) : (
-                                    <select 
-                                        value={LANGUAGES.includes(outputLanguage) ? outputLanguage : "Custom"}
-                                        onChange={handleLanguageChange}
-                                        className="bg-transparent text-xs font-semibold text-slate-600 outline-none cursor-pointer border-none p-0 focus:ring-0 appearance-none pr-4"
-                                    >
-                                        {LANGUAGES.map(lang => (
-                                            <option key={lang} value={lang}>{lang}</option>
-                                        ))}
-                                    </select>
-                                )}
+                         <div className="flex items-center gap-2">
+                             {/* Aspect Ratio Selector */}
+                            <div className="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-lg transition-colors cursor-pointer border border-transparent hover:border-slate-300">
+                                <Ratio className="w-3.5 h-3.5 text-slate-500" />
+                                <select 
+                                    value={aspectRatio}
+                                    onChange={(e) => setAspectRatio(e.target.value as AspectRatio)}
+                                    className="bg-transparent text-xs font-semibold text-slate-600 outline-none cursor-pointer border-none p-0 focus:ring-0 appearance-none pr-1"
+                                >
+                                    {ASPECT_RATIOS.map(ratio => (
+                                        <option key={ratio} value={ratio}>{ratio}</option>
+                                    ))}
+                                </select>
                             </div>
+
+                             {/* Language Selector */}
+                             <div className="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-lg transition-colors cursor-pointer group-focus-within:ring-2 border border-transparent hover:border-slate-300">
+                                    <Globe className="w-3.5 h-3.5 text-slate-500" />
+                                    {isCustomLang ? (
+                                        <input 
+                                            type="text" 
+                                            value={outputLanguage}
+                                            onChange={(e) => setOutputLanguage(e.target.value)}
+                                            placeholder="Language..."
+                                            className="text-xs bg-transparent border-none outline-none w-24 text-slate-700 placeholder:text-slate-400 font-medium"
+                                            autoFocus
+                                        />
+                                    ) : (
+                                        <select 
+                                            value={LANGUAGES.includes(outputLanguage) ? outputLanguage : "Custom"}
+                                            onChange={handleLanguageChange}
+                                            className="bg-transparent text-xs font-semibold text-slate-600 outline-none cursor-pointer border-none p-0 focus:ring-0 appearance-none pr-4"
+                                        >
+                                            {LANGUAGES.map(lang => (
+                                                <option key={lang} value={lang}>{lang}</option>
+                                            ))}
+                                        </select>
+                                    )}
+                                </div>
+                         </div>
                     </div>
 
-                    <div className={`relative group transition-all duration-300`}>
-                        <textarea
-                            value={topic}
-                            onChange={(e) => setTopic(e.target.value)}
-                            placeholder={selectedTemplate === TemplateType.SCIENCE_COMIC 
-                                ? "E.g., Topic: Photosynthesis\nAudience: Middle School Students\nKey Points: Sunlight, Water, Oxygen, Chlorophyll..." 
-                                : "E.g., A minimalist home office setup with warm lighting, beige tones, wooden desk, coffee cup details, and a cozy atmosphere..."}
-                            className={`w-full min-h-[180px] p-6 rounded-2xl border-2 bg-slate-50 outline-none transition-all resize-none text-slate-800 placeholder:text-slate-400 text-lg leading-relaxed
-                            ${topic.trim() ? 'bg-white' : ''}
-                            focus:bg-white focus:border-${themeColor}-500 focus:shadow-lg focus:shadow-${themeColor}-500/5 border-slate-200`}
-                        />
-                        <div className="absolute bottom-4 right-4 pointer-events-none opacity-50">
-                            <PenTool className={`w-5 h-5 text-${themeColor}-200`} />
+                    <div className="grid gap-6">
+                        {/* Field 1: Topic */}
+                        <div className="space-y-2">
+                            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Topic / Subject <span className="text-red-500">*</span></label>
+                            <input
+                                value={mainTopic}
+                                onChange={(e) => setMainTopic(e.target.value)}
+                                placeholder={ph.topic}
+                                className={`w-full p-4 rounded-xl border-2 bg-slate-50 outline-none transition-all text-slate-800 placeholder:text-slate-400 font-medium text-lg
+                                ${mainTopic.trim() ? 'bg-white' : ''}
+                                focus:bg-white focus:border-${themeColor}-500 focus:shadow-lg focus:shadow-${themeColor}-500/5 border-slate-200`}
+                            />
+                        </div>
+
+                        <div className="grid md:grid-cols-3 gap-6">
+                             {/* Field 3: Content (Main Input) - Takes 2/3 width */}
+                             <div className="md:col-span-2 space-y-2 h-full flex flex-col">
+                                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
+                                    <AlignLeft className="w-3.5 h-3.5" /> Core Content / Details <span className="text-red-500">*</span>
+                                </label>
+                                <textarea
+                                    value={contentInput}
+                                    onChange={(e) => setContentInput(e.target.value)}
+                                    placeholder={ph.content}
+                                    rows={5}
+                                    className={`w-full p-4 rounded-xl border-2 bg-slate-50 outline-none transition-all resize-none text-slate-800 placeholder:text-slate-400 text-sm flex-1 min-h-[160px]
+                                    ${contentInput.trim() ? 'bg-white' : ''}
+                                    focus:bg-white focus:border-${themeColor}-500 focus:shadow-lg focus:shadow-${themeColor}-500/5 border-slate-200`}
+                                />
+                             </div>
+
+                             {/* Field 2: Style (Secondary) - Takes 1/3 width */}
+                             <div className="md:col-span-1 space-y-2 h-full flex flex-col">
+                                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
+                                    <Palette className="w-3.5 h-3.5" /> Art Style
+                                </label>
+                                <textarea
+                                    value={styleInput}
+                                    onChange={(e) => setStyleInput(e.target.value)}
+                                    placeholder={ph.style}
+                                    rows={5}
+                                    className={`w-full p-4 rounded-xl border-2 bg-slate-50 outline-none transition-all resize-none text-slate-800 placeholder:text-slate-400 text-sm flex-1 min-h-[160px]
+                                    ${styleInput.trim() ? 'bg-white' : ''}
+                                    focus:bg-white focus:border-${themeColor}-500 focus:shadow-lg focus:shadow-${themeColor}-500/5 border-slate-200`}
+                                />
+                             </div>
                         </div>
                     </div>
                 </div>
@@ -331,7 +487,7 @@ export const InputStep: React.FC<InputProps> = ({
 
             <button
                 onClick={onNext}
-                disabled={!topic.trim() || isProcessing}
+                disabled={(!mainTopic.trim() && !contentInput.trim()) || isProcessing}
                 className={`px-10 py-3.5 text-white text-base font-bold rounded-xl transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0 disabled:transform-none disabled:shadow-none disabled:bg-slate-300 disabled:cursor-not-allowed flex items-center gap-3 bg-gradient-to-r ${themeGradient}`}
             >
                 {hasGeneratedConcepts ? "Regenerate Concept" : "Generate Concept"} <ArrowRight className="w-5 h-5" />

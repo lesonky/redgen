@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Sparkles, RefreshCw, CheckCircle2, ArrowRight, Loader2, ArrowLeft, Wand2 } from 'lucide-react';
-import { ReferenceImage, TemplateType } from '../../types';
+import { ReferenceImage, TemplateType, AspectRatio } from '../../types';
 
 interface ConceptStepProps {
   analysisText: string;
   conceptImages: ReferenceImage[];
   selectedTemplate: TemplateType;
+  aspectRatio: AspectRatio;
   onConfirm: (selectedConceptImage: ReferenceImage) => void;
   onRegenerate: () => void;
   onBack: () => void;
@@ -16,6 +17,7 @@ const ConceptStep: React.FC<ConceptStepProps> = ({
   analysisText,
   conceptImages,
   selectedTemplate,
+  aspectRatio,
   onConfirm,
   onRegenerate,
   onBack,
@@ -46,10 +48,12 @@ const ConceptStep: React.FC<ConceptStepProps> = ({
     onRegenerate();
   };
 
-  const themeColor = selectedTemplate === TemplateType.SCIENCE_COMIC ? 'blue' : 'red';
+  const themeColor = selectedTemplate === TemplateType.SCIENCE_COMIC ? 'blue' : selectedTemplate === TemplateType.PPT ? 'orange' : 'red';
   const themeGradient = selectedTemplate === TemplateType.SCIENCE_COMIC 
     ? 'from-blue-500 to-indigo-600' 
-    : 'from-red-500 to-pink-600';
+    : selectedTemplate === TemplateType.PPT
+        ? 'from-orange-500 to-amber-600'
+        : 'from-red-500 to-pink-600';
 
   return (
     <div className="flex flex-col h-full w-full bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden relative">
@@ -94,7 +98,7 @@ const ConceptStep: React.FC<ConceptStepProps> = ({
                                 ? `border-${themeColor}-500 ring-4 ring-${themeColor}-500/10 shadow-xl scale-[1.01]` 
                                 : 'border-transparent hover:shadow-lg'}`}
                         >
-                            <div className="aspect-[3/4] bg-slate-100 relative">
+                            <div className="bg-slate-100 relative" style={{ aspectRatio: aspectRatio.replace(':', '/') }}>
                                <img src={img.previewUrl} alt={`Concept ${idx + 1}`} className="w-full h-full object-cover" />
                                {/* Hover Overlay */}
                                <div className={`absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors ${isSelected ? 'bg-transparent' : ''}`} />

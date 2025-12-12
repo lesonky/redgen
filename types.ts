@@ -10,8 +10,11 @@ export enum AppStep {
 
 export enum TemplateType {
   XIAOHONGSHU = 'XIAOHONGSHU',
-  SCIENCE_COMIC = 'SCIENCE_COMIC'
+  SCIENCE_COMIC = 'SCIENCE_COMIC',
+  PPT = 'PPT'
 }
+
+export type AspectRatio = "1:1" | "3:4" | "4:3" | "9:16" | "16:9";
 
 export interface ReferenceImage {
   id: string;
@@ -48,6 +51,7 @@ export interface PlanAnalysis {
   contentDirection: string;
   styleAnalysis: string;
   bestReferenceId?: string; // ID of the reference image chosen as "Main Style Source"
+  artDirection?: string; // 新增：完整艺术风格指导文本（仅 PPT 目前用）
 }
 
 export interface GenerationState {

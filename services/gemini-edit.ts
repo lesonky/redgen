@@ -1,4 +1,4 @@
-import { ReferenceImage } from "../types";
+import { ReferenceImage, AspectRatio } from "../types";
 import { getClient } from "./gemini-client";
 import { MODEL_IMAGE_GEN } from "./gemini-constants";
 import { getLastAnalysis, getLastReferenceImages } from "./gemini-state";
@@ -6,7 +6,8 @@ import { safeLog } from "./gemini-utils";
 
 export const editGeneratedImage = async (
   imageBase64: string,
-  instruction: string
+  instruction: string,
+  aspectRatio: AspectRatio
 ): Promise<string> => {
   const ai = getClient();
 
@@ -80,7 +81,7 @@ ${instruction}
 - 如果有核心参考图：人物/产品的五官、发型、体态、产品外形、logo 必须与核心参考图保持一致。
 - 只在当前画面基础上进行修改，不要完全重绘一个新的主体。
 - 尽量局部编辑指定内容，保留已正确的构图与细节。
-- 保持画幅比例 3:4。
+- 保持画幅比例 ${aspectRatio}。
 `
   });
 
@@ -91,7 +92,7 @@ ${instruction}
     contents: { parts },
     config: {
       imageConfig: {
-        aspectRatio: "3:4",
+        aspectRatio: aspectRatio,
         imageSize: "1K"
       }
     }

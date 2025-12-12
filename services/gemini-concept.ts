@@ -1,15 +1,108 @@
 import { Type } from "@google/genai";
-import { ReferenceImage, TemplateType } from "../types";
+import { ReferenceImage, TemplateType, AspectRatio } from "../types";
 import { getClient } from "./gemini-client";
 import { MODEL_IMAGE_GEN, MODEL_TEXT_REASONING } from "./gemini-constants";
 import { cleanJson, safeLog } from "./gemini-utils";
+
+// 0. Auto-fill Suggestions (New Feature)
+export const generateInputSuggestions = async (
+  topic: string,
+  referenceImages: ReferenceImage[],
+  templateType: TemplateType
+): Promise<{ style: string; content: string }> => {
+  const ai = getClient();
+  
+  const parts: any[] = [];
+  
+  // Add images to context
+  referenceImages.forEach((img, idx) => {
+    parts.push({
+      inlineData: {
+        data: img.base64,
+        mimeType: img.mimeType
+      }
+    });
+    parts.push({ text: `[Reference Image ${idx + 1}]` });
+  });
+
+  const prompt = `
+Role: Senior Content Strategist & Visual Planner.
+Goal: Split the user's input into three fields: "topic", "style", "content".
+This is STEP-0 (content outline). Do NOT do art direction, do NOT infer lighting/color palette, do NOT describe rendering style.
+
+User Input:
+- raw topic text: "${topic}"
+
+Reference Images:
+- If provided, treat them ONLY as factual clues about WHAT exists (objects/people/product/category/location), NOT HOW it looks.
+- NEVER extract color palette, lighting, art style, camera, texture, or vibe from images in this step.
+
+Definitions (very important):
+1) "topic" = one-sentence core intent (what the user wants to communicate / achieve), rewritten to be clearer but not longer than 25 Chinese characters or 18 English words.
+2) "style" = content positioning keywords (NOT visual style):
+   - include: audience/scene + tone + format intent + platform convention.
+   - examples (not exhaustive): "小红书种草/测评/攻略/清单/避坑", "PPT汇报/方案/复盘/科普", "漫画科普/对话/分镜".
+   - do NOT include: color, lighting, lens, rendering, illustration style, brand style guide, typography, layout rules.
+   - keep it 6–18 words (or 6–24 Chinese chars), separated by " / ".
+3) "content" = structured content outline that can later drive planning:
+   - For Xiaohongshu: include 1) 核心卖点/结论 2) 3–6 个要点（each with a short headline + 1 sentence detail）3) 可出现的具体对象/场景清单（bullets）4) 明确的行动/转化目标（关注/收藏/评论/购买等）。
+   - For PPT: include 1) 受众与目的 2) 章节大纲（4–7 章）3) 每章 2–4 个要点 4) 需要的数据/图表/案例类型（如果用户没给，就提出“待补充项”）。
+   - For Comic: include 1) 讲解主线 2) 关键概念清单 3) 角色/物件清单 4) 3–6 个“场景节点”（每个节点一句话）。
+   - Keep it concise but information-dense. Avoid marketing fluff.
+
+Template Type: "${templateType}"
+
+Hard Constraints:
+- Output MUST be valid JSON only (no markdown, no extra text).
+- All strings must be in the same language as the user's input topic.
+- If information is missing, do not ask questions; infer a reasonable default and mark uncertainties inside content as "（待补充）".
+- Avoid hallucinating specific brand names, people names, addresses, or prices unless the user explicitly provided them.
+
+Return JSON:
+{
+  "style": "string",
+  "content": "string"
+}
+`;
+  
+  parts.push({ text: prompt });
+
+  try {
+    const response = await ai.models.generateContent({
+      model: MODEL_TEXT_REASONING,
+      contents: { role: "user", parts },
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+              style: { type: Type.STRING },
+              content: { type: Type.STRING }
+          },
+          required: ["style", "content"]
+        }
+      }
+    });
+
+    const text = (response as any).text || "{}";
+    const json = JSON.parse(cleanJson(text));
+    return {
+      style: json.style || "",
+      content: json.content || ""
+    };
+  } catch (error) {
+    console.error("Auto-fill generation failed", error);
+    return { style: "", content: "" };
+  }
+};
 
 // 1. Generate Concept Analysis & Master Images
 export const generateConcept = async (
   topic: string,
   referenceImages: ReferenceImage[],
-  templateType: TemplateType
-): Promise<{ analysisText: string; conceptImages: string[] }> => {
+  templateType: TemplateType,
+  aspectRatio: AspectRatio
+): Promise<{ analysisText: string; conceptImages: string[]; artDirection?: string }> => {
   const ai = getClient();
   const hasReferences = referenceImages.length > 0;
 
@@ -23,15 +116,15 @@ export const generateConcept = async (
     
     // Fallback if no specific tag is selected (implies both)
     if (roles.length === 0) {
-        roles.push("General Reference (Both Style & Material)");
+      roles.push("General Reference (Both Style & Material)");
     }
     
     labeledParts.push({ text: `[Reference Image ${idx + 1} Usage]: ${roles.join(" + ")}` });
     labeledParts.push({
-        inlineData: {
-            data: img.base64,
-            mimeType: img.mimeType
-        }
+      inlineData: {
+        data: img.base64,
+        mimeType: img.mimeType
+      }
     });
   });
 
@@ -42,37 +135,97 @@ export const generateConcept = async (
   if (templateType === TemplateType.XIAOHONGSHU) {
     // 小红书商业视觉方向
     analysisSystemInstruction = `
-You are a world-class Visual Director.
-Your task is to define a "Master Visual Identity" (KV) for a set of social media images.
+You are a world-class Social Visual Director specialized in Xiaohongshu cover images.
+Your task is to define a "Topic Key Visual" for a single post.
 
-CRITICAL RULE:
+CRITICAL RULES:
 1. SUBJECT / CONTENT: Must come strictly from the USER'S TOPIC ("${topic}") and any Reference Images labeled as "MATERIAL".
 2. STYLE / AESTHETICS: Must come strictly from Reference Images labeled as "STYLE".
-3. GOAL: Visualize the subject (Topic + Material Refs) wearing the style (Style Refs).
-4. COMPOSITE: Identify every role the campaign needs (hero product、模特/代言人、关键道具等)，并在同一张 3:4 竖图里同时呈现这些角色。
+3. GOAL: Create ONE strong, easy-to-recognize cover image that clearly expresses the topic at a glance.
+4. FOCUS: One clear main subject as the visual focus; supporting elements should not clutter the frame.
+5. COMPOSITION: ${aspectRatio} vertical, suitable for feed thumbnail; reserve a relatively clean area where text overlay COULD be added later (but do NOT describe or draw real UI text).
 
-Do NOT simply describe the reference image. You must apply the reference's lighting, color palette, and mood to the *new* subject defined in the topic.
+Do NOT simply repeat or copy a reference image. You must reinterpret the topic through the chosen style (lighting, color, mood).
 `;
 
     analysisPrompt = `
 Task: Analyze the user's topic "Topic: ${topic}" and the provided labeled reference images.
-Create a visual definition that fuses the TOPIC/MATERIAL with the STYLE references.
+Create a visual definition for ONE Xiaohongshu-style topic cover image (Key Visual).
 
 Return a JSON object:
 
-1. "analysis": A concise paragraph explaining how you are blending the topic and style.
-   - Example: "Applying the [Ref 2 - Style] minimalist, high-key medical aesthetic to the [Topic + Ref 1 - Material] spicy hot pot ingredients to create a clean, modern food science vibe."
+1. "analysis": A concise paragraph explaining:
+   - What the main subject is,
+   - What mood/emotion the image should convey,
+   - How STYLE references are used (lighting, color, overall vibe).
 
-2. "roles": 2–4 short entries listing every required role/subject that must co-exist in the KV (e.g., "Hero Product - front and center", "Spokesperson - friendly female model", "Key Prop - elevated lacquer tray").
+2. "roles": 2–3 short entries describing visual roles in the frame:
+   - Example: "Main Subject - steaming hot pot on table", 
+             "Supporting Element - chopsticks and side dishes",
+             "Background Mood - soft blurred neon city at night".
 
-3. "imagePrompt": A highly detailed prompt for generating the Master Key Visual (KV) that places ALL roles together in one frame.
-   - Format: 3:4 Vertical.
-   - Subject: ${topic} (Focus on the material content) + all roles above simultaneously visible.
-   - Style details to extract from Style references: Lighting, Color Palette, Texture, Composition.
-   - Composition: Clearly stage every role in one image; keep top 30% clean for potential text overlay.
+3. "imagePrompt": A highly detailed prompt for generating this single cover image:
+   - Format: ${aspectRatio}.
+   - Subject: Directly tied to "${topic}", using MATERIAL references for concrete content.
+   - Style: Derived from STYLE refs (lighting, color palette, rendering style).
+   - Composition: One clear focal point; supporting elements arranged around it.
+   - Keep one area (top or side) relatively clean for potential text overlay (no need to mention text explicitly in the image).
+`;
+  } else if (templateType === TemplateType.PPT) {
+    // PPT / Presentation Slide 方向：这里加 Art Direction
+    analysisSystemInstruction = `
+You are a Lead Presentation Designer.
+Your task is to define a "Master Presentation Theme" image and a reusable Art Direction guide for a slide deck.
+
+CRITICAL RULES:
+1. TOPIC: "${topic}" is the core subject of the presentation.
+2. STYLE: Infer an appropriate presentation style from the topic and any "STYLE" references.
+   Possible styles: Tech/Futuristic, Corporate/Minimalist, Creative/Cartoon, Red/Energy, Academic/Clean.
+3. GOAL: 
+   - Create a cover-style background image that conveys the topic with a clear visual metaphor or scene,
+   - Establish the core color palette and mood,
+   - Leave enough clean space for future title and text overlays.
+4. ART DIRECTION:
+   - You MUST output a detailed Art Direction section that can be reused across all slides (visual style, color, line work, layout rules, typography tone, forbidden elements).
+`;
+
+    analysisPrompt = `
+Task: Create a Master Presentation Theme for a slide deck about "${topic}".
+If references are provided, use "STYLE" refs for color/font/layout inspiration, and "MATERIAL" refs for concrete subject hints.
+
+Return a JSON object:
+
+1. "analysis": A short paragraph describing:
+   - The chosen theme (e.g. "futuristic city, abstract data waves"),
+   - Why it fits the topic,
+   - How the color palette and mood support the presentation context.
+
+2. "roles": 2–3 key visual/design elements that define the theme:
+   - Example: "Main Visual Motif - abstract data lines flowing from left to right",
+             "Accent Shape - rounded rectangles framing the content area",
+             "Light Source - subtle glow from top-right".
+
+3. "artDirection": A detailed Art Direction guide, with sections such as:
+   - Illustration / Visual Style (flat vs 3D, abstract vs realistic, level of detail)
+   - Line Work (with or without outlines, line thickness, consistency)
+   - Composition / Layout (where main visual sits, where negative space is reserved for titles)
+   - Shape Language (geometric / rounded / sharp, icon style)
+   - Color System (background color tendencies, primary & accent colors, saturation rules)
+   - Texture & Depth (flat, slight gradients, glow, etc., and what is forbidden)
+   - Typography Tone (title vs body feel: tech, corporate, playful, academic)
+   - Mood & Tone (emotion and atmosphere)
+   - Forbidden Elements (things that MUST NOT appear for this theme)
+
+4. "imagePrompt": A detailed prompt for the Master Theme Image:
+   - Subject: A concept image suitable as a PPT title-slide background for "${topic}".
+   - Style: Clean, legible, professional; based on STYLE refs if present.
+   - Composition: 
+     - Clear main visual area that hints at the topic,
+     - Intentional negative space for where title and content will later be placed,
+     - No real text, no UI chrome; only shapes, imagery and implied layout.
 `;
   } else {
-    // 科普漫画 / 漫画方向
+    // 科普漫画 / 漫画方向（不改）
     analysisSystemInstruction = `
 You are a Lead Character Designer for a Science Comic.
 Your goal is to create a "Master Character & Style Sheet".
@@ -97,18 +250,20 @@ Return a JSON object:
 
 3. "imagePrompt": A detailed prompt for the Master Character Sheet that includes all roles simultaneously.
    - Subject: A roster of characters suitable for explaining "${topic}".
-   - Pose: Full body, neutral or welcoming; arrange them together in one 3:4 vertical composition.
+   - Pose: Full body, neutral or welcoming; arrange them together in one ${aspectRatio} vertical composition.
    - Art Style: Strictly follow the STYLE reference images.
    - Background: Neutral/Simple.
    - No text, no panels.
 `;
   }
 
+  // --- schema 增加 artDirection，可选 ---
   const analysisSchema = {
     type: Type.OBJECT,
     properties: {
       analysis: { type: Type.STRING },
       roles: { type: Type.ARRAY, items: { type: Type.STRING } },
+      artDirection: { type: Type.STRING },
       imagePrompt: { type: Type.STRING }
     },
     required: ["analysis", "roles", "imagePrompt"]
@@ -133,34 +288,92 @@ Return a JSON object:
   const conceptRoles: string[] = Array.isArray(analysisResult.roles)
     ? analysisResult.roles.filter((r: any) => typeof r === "string")
     : [];
-  const rolesInstruction =
-    conceptRoles.length > 0
-      ? `Composite requirement: show ALL required roles together in one frame: ${conceptRoles.join(" | ")}. Keep them visually distinct and harmonious.`
-      : "Composite requirement: include every required role for the task together in one frame (do not omit characters).";
-  const conceptPrompt: string = `${analysisResult.imagePrompt}\n\n${rolesInstruction}`;
-  const conceptAnalysis: string =
-    conceptRoles.length > 0
-      ? `${analysisResult.analysis}\n\n角色清单：${conceptRoles.join(" / ")}`
-      : analysisResult.analysis;
+  const artDirection: string =
+    typeof (analysisResult as any).artDirection === "string"
+      ? (analysisResult as any).artDirection
+      : "";
+
+  let conceptPrompt = "";
+  let conceptAnalysis = "";
+
+  if (templateType === TemplateType.PPT) {
+    // PPT：在 Prompt + 文本分析里注入 Art Direction
+    const artDirForPrompt =
+      artDirection && artDirection.trim().length > 0
+        ? artDirection
+        : "You must still infer a clean, professional, and consistent PPT visual style (colors, shapes, composition, and typography tone) based on the topic and references.";
+
+    conceptPrompt = `${analysisResult.imagePrompt}
+    
+Global Art Direction (must be followed for all PPT visuals):
+${artDirForPrompt}
+
+Key Visual Elements: ${conceptRoles.join(" | ")}.
+Make sure the image works as a clean, professional PPT title background with clear negative space for text.`;
+
+    conceptAnalysis = `${analysisResult.analysis}
+    
+设计要素：${conceptRoles.join(" / ")}
+艺术风格指导：
+${artDirForPrompt}`;
+  } else if (templateType === TemplateType.XIAOHONGSHU) {
+    const rolesInstruction =
+      conceptRoles.length > 0
+        ? `Visual Roles: ${conceptRoles.join(" | ")}. The main subject must be the strongest focal point; supporting elements should enhance, not distract.`
+        : "Ensure there is one clear main subject as the focal point, with only a few supporting elements.";
+    conceptPrompt = `${analysisResult.imagePrompt}\n\n${rolesInstruction}`;
+    conceptAnalysis =
+      conceptRoles.length > 0
+        ? `${analysisResult.analysis}\n\n画面元素：${conceptRoles.join(" / ")}`
+        : analysisResult.analysis;
+  } else {
+    const rolesInstruction =
+      conceptRoles.length > 0
+        ? `Composite requirement: show ALL required roles together in one frame: ${conceptRoles.join(" | ")}. Keep them visually distinct and harmonious.`
+        : "Composite requirement: include every required role for the task together in one frame (do not omit characters).";
+    conceptPrompt = `${analysisResult.imagePrompt}\n\n${rolesInstruction}`;
+    conceptAnalysis =
+      conceptRoles.length > 0
+        ? `${analysisResult.analysis}\n\n角色清单：${conceptRoles.join(" / ")}`
+        : analysisResult.analysis;
+  }
 
   // --- 3. 根据模板类型构建出图指令 ---
+  let imageGenPrompt = "";
+  if (templateType === TemplateType.XIAOHONGSHU) {
+    imageGenPrompt = `Generate a ${aspectRatio} vertical Xiaohongshu topic cover image based on this description:
+${conceptPrompt}
+
+IMPORTANT:
+- The main content MUST clearly relate to: ${topic}.
+- Use "MATERIAL" images for concrete subject (objects, people, products).
+- Use "STYLE" images for lighting, colors, and overall rendering style.
+- One strong focal point, clean composition, high-quality commercial photography or 3D render.
+- Keep a relatively clean area where UI text could be placed later, but do NOT draw actual UI text.`;
+  } else if (templateType === TemplateType.PPT) {
+    imageGenPrompt = `Generate a ${aspectRatio} vertical Master Presentation Theme image based on this description:
+${conceptPrompt}
+
+IMPORTANT:
+- The visual theme MUST reflect the topic: ${topic}.
+- Use "STYLE" images for color palette, mood, and abstract shapes.
+- This is a PPT title background: 
+  - Do NOT render real text or UI elements.
+  - Leave intentional negative space for later title and content.
+  - Focus on mood, metaphor, and clean graphic composition.`;
+  } else {
+    imageGenPrompt = `Generate a ${aspectRatio} vertical Master Character Sheet based on this description:
+${conceptPrompt}
+
+IMPORTANT:
+- The character(s) MUST be relevant to the topic: ${topic}.
+- Use "STYLE" images for drawing style (line weight, shading).
+- Clean background, no text.`;
+  }
+
   const imageGenerationParts = [
     ...labeledParts,
-    {
-      text:
-        templateType === TemplateType.XIAOHONGSHU
-          ? `Generate a 3:4 vertical commercial Key Visual (KV) based on this description:\n${conceptPrompt}\n
-IMPORTANT:
-- The content/subject MUST be about: ${topic}.
-- Use "MATERIAL" images for shape/identity.
-- Use "STYLE" images for lighting/colors/rendering style.
-- High quality, professional photography or 3D render.`
-          : `Generate a 3:4 vertical Master Character Sheet based on this description:\n${conceptPrompt}\n
-IMPORTANT:
-- The character MUST be relevant to the topic: ${topic}.
-- Use "STYLE" images for drawing style (line weight, shading).
-- Clean background, no text.`
-    }
+    { text: imageGenPrompt }
   ];
 
   // --- 4. 生成 2 张概念图（并行） ---
@@ -171,12 +384,12 @@ IMPORTANT:
       contents: { parts: imageGenerationParts },
       config: {
         imageConfig: {
-          aspectRatio: "3:4",
+          aspectRatio: aspectRatio,
           imageSize: "1K"
         }
       }
     });
-  }
+  };
 
   const imageResponses = await Promise.all([generateOne(), generateOne()]);
 
@@ -196,6 +409,7 @@ IMPORTANT:
 
   return {
     analysisText: conceptAnalysis,
-    conceptImages: generatedBase64s
+    conceptImages: generatedBase64s,
+    artDirection
   };
 };
