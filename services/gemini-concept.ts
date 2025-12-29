@@ -4,7 +4,7 @@ import { getClient } from "./gemini-client";
 import { MODEL_IMAGE_GEN, MODEL_TEXT_REASONING } from "./gemini-constants";
 import { cleanJson, safeLog } from "./gemini-utils";
 
-// 0. Auto-fill Suggestions (New Feature)
+// 0. Auto-fill Suggestions (Improved for structured Style presets)
 export const generateInputSuggestions = async (
   topic: string,
   referenceImages: ReferenceImage[],
@@ -14,7 +14,7 @@ export const generateInputSuggestions = async (
   
   const parts: any[] = [];
   
-  // Add images to context
+  // Add images to context for material/category clues
   referenceImages.forEach((img, idx) => {
     parts.push({
       inlineData: {
@@ -26,37 +26,41 @@ export const generateInputSuggestions = async (
   });
 
   const prompt = `
-Role: Senior Content Strategist & Visual Planner.
-Goal: Split the user's input into three fields: "topic", "style", "content".
-This is STEP-0 (content outline). Do NOT do art direction, do NOT infer lighting/color palette, do NOT describe rendering style.
+Role: Senior Visual Designer & Content Strategist.
+Goal: Expand the user's raw input into professional "style" and "content" fields.
 
 User Input:
 - raw topic text: "${topic}"
+- template type: "${templateType}"
 
-Reference Images:
-- If provided, treat them ONLY as factual clues about WHAT exists (objects/people/product/category/location), NOT HOW it looks.
-- NEVER extract color palette, lighting, art style, camera, texture, or vibe from images in this step.
+Instructions for "style" (CRITICAL):
+Generate a comprehensive, structured visual style prompt. DO NOT use simple keywords. Use the following bracketed structure based on the template type:
 
-Definitions (very important):
-1) "topic" = one-sentence core intent (what the user wants to communicate / achieve), rewritten to be clearer but not longer than 25 Chinese characters or 18 English words.
-2) "style" = content positioning keywords (NOT visual style):
-   - include: audience/scene + tone + format intent + platform convention.
-   - examples (not exhaustive): "小红书种草/测评/攻略/清单/避坑", "PPT汇报/方案/复盘/科普", "漫画科普/对话/分镜".
-   - do NOT include: color, lighting, lens, rendering, illustration style, brand style guide, typography, layout rules.
-   - keep it 6–18 words (or 6–24 Chinese chars), separated by " / ".
-3) "content" = structured content outline that can later drive planning:
-   - For Xiaohongshu: include 1) 核心卖点/结论 2) 3–6 个要点（each with a short headline + 1 sentence detail）3) 可出现的具体对象/场景清单（bullets）4) 明确的行动/转化目标（关注/收藏/评论/购买等）。
-   - For PPT: include 1) 受众与目的 2) 章节大纲（4–7 章）3) 每章 2–4 个要点 4) 需要的数据/图表/案例类型（如果用户没给，就提出“待补充项”）。
-   - For Comic: include 1) 讲解主线 2) 关键概念清单 3) 角色/物件清单 4) 3–6 个“场景节点”（每个节点一句话）。
-   - Keep it concise but information-dense. Avoid marketing fluff.
+If template is XIAOHONGSHU or PPT:
+【视觉基调】 (Overall mood/aesthetic, e.g., high-end commercial, tech-futuristic, warm lifestyle)
+【画面元素】 (Key objects, props, lighting details, textures)
+【风格约束】 (What to avoid, e.g., no low-quality filters, no 3D if flat is chosen, specific color limits)
+【合规与替代】 (Handling sensitive or brand-specific content with generic symbols)
+【信息设计】 (Strategy for text overlay, where to put emphasis)
+【排版】 (Composition rules, e.g., grid system, centered vs asymmetric)
+【语言】 (Instruction to match input language)
 
-Template Type: "${templateType}"
+If template is SCIENCE_COMIC:
+【视觉基调】 (Art style name, e.g., Ghibli-inspired, Chibi, American Superhero)
+【画面元素】 (Character design rules, line weight, shading style)
+【风格约束】 (Style limits, e.g., no realistic shading, specific color palette)
+【叙事风格】 (Storytelling tone, e.g., humorous, poetic, logic-driven)
+【分镜与漫画结构】 (Panel logic, camera angles, pacing)
+
+Instructions for "content":
+- For Xiaohongshu: 1) Core selling points/conclusions 2) 3-6 bullet points with details 3) Target audience & CTA.
+- For PPT: 1) Audience & Purpose 2) 5-8 chapter outline 3) Data/chart requirements for each chapter.
+- For Comic: 1) Storyline/concept flow 2) Character roster 3) 4-6 scene node summaries.
 
 Hard Constraints:
-- Output MUST be valid JSON only (no markdown, no extra text).
-- All strings must be in the same language as the user's input topic.
-- If information is missing, do not ask questions; infer a reasonable default and mark uncertainties inside content as "（待补充）".
-- Avoid hallucinating specific brand names, people names, addresses, or prices unless the user explicitly provided them.
+- Output MUST be valid JSON only.
+- All strings must be in the same language as the user's input topic (likely Chinese).
+- The "style" field must be rich, specific, and professional, following the bracketed format exactly.
 
 Return JSON:
 {
