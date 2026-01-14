@@ -1,17 +1,61 @@
-import { ReferenceImage, AspectRatio } from "../types";
+import { ReferenceImage, AspectRatio, ImageSize } from "../types";
 import { getClient } from "./gemini-client";
-import { MODEL_IMAGE_GEN } from "./gemini-constants";
+import { MODEL_IMAGE_GEN, MODEL_TEXT_REASONING } from "./gemini-constants";
 import { getLastAnalysis, getLastReferenceImages } from "./gemini-state";
-import { safeLog } from "./gemini-utils";
+import { safeLog, cleanJson } from "./gemini-utils";
+import { Type } from "@google/genai";
+
+export const optimizeEditPrompt = async (rawPrompt: string): Promise<string> => {
+  const ai = getClient();
+  const prompt = `
+Role: Expert AI Image Prompt Engineer.
+Task: Take the user's simple image editing request and expand it into a detailed, professional instruction for an AI image generation model (Gemini).
+
+Original Request: "${rawPrompt}"
+
+Instructions:
+- Keep the core intent of the user.
+- Add technical details about lighting, textures, composition, or atmosphere if implied.
+- Keep it concise but descriptive (2-3 sentences).
+- Output the optimized prompt in English for best model compatibility.
+
+Return JSON:
+{
+  "optimizedPrompt": "string"
+}
+`;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-3-flash-preview",
+      contents: { role: "user", parts: [{ text: prompt }] },
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            optimizedPrompt: { type: Type.STRING }
+          },
+          required: ["optimizedPrompt"]
+        }
+      }
+    });
+    const result = JSON.parse(cleanJson((response as any).text || "{}"));
+    return result.optimizedPrompt || rawPrompt;
+  } catch (e) {
+    console.error("Prompt optimization failed", e);
+    return rawPrompt;
+  }
+};
 
 export const editGeneratedImage = async (
   imageBase64: string,
   instruction: string,
-  aspectRatio: AspectRatio
+  aspectRatio: AspectRatio,
+  imageSize: ImageSize
 ): Promise<string> => {
   const ai = getClient();
 
-  // 使用最近一次 generatePlan 缓存的参考图与分析
   const refs: ReferenceImage[] = Array.isArray(getLastReferenceImages()) ? getLastReferenceImages() : [];
   const analysis = getLastAnalysis();
 
@@ -32,7 +76,6 @@ export const editGeneratedImage = async (
 
   const parts: any[] = [];
 
-  // 核心参考图（如果有）
   if (primaryReference) {
     parts.push({
       inlineData: {
@@ -41,12 +84,10 @@ export const editGeneratedImage = async (
       }
     });
     parts.push({
-      text:
-        "【核心身份参考图】保持此图中的人物/产品五官、发型、服饰、logo、外形结构完全一致。编辑时不得改变其基本身份特征。"
+      text: "【核心身份参考图】保持此图中的人物/产品五官、发型、服饰、logo、外形结构完全一致。编辑时不得改变其基本身份特征。"
     });
   }
 
-  // 其他辅助参考图（如果有）
   refs.forEach((img) => {
     if (!img.isMaterial && !img.isStyle) return;
     if (primaryReference && img.id === primaryReference.id) return;
@@ -57,13 +98,9 @@ export const editGeneratedImage = async (
         mimeType: img.mimeType
       }
     });
-
-    parts.push({
-      text: "【辅助参考图】参考光线、色调、材质、氛围，不改变主体身份。"
-    });
+    parts.push({ text: "【辅助参考图】参考光线、色调、材质、氛围，不改变主体身份。" });
   });
 
-  // 待编辑的图片本体
   parts.push({
     inlineData: {
       data: imageBase64,
@@ -71,7 +108,6 @@ export const editGeneratedImage = async (
     }
   });
 
-  // 文本编辑指令
   parts.push({
     text: `
 【编辑任务】
@@ -93,7 +129,7 @@ ${instruction}
     config: {
       imageConfig: {
         aspectRatio: aspectRatio,
-        imageSize: "1K"
+        imageSize: imageSize
       }
     }
   });

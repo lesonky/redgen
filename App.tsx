@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { AppStep, ImagePlanItem, PlanAnalysis, ReferenceImage, GeneratedImage, TemplateType, AspectRatio } from './types';
+import { AppStep, ImagePlanItem, PlanAnalysis, ReferenceImage, GeneratedImage, TemplateType, AspectRatio, ImageSize } from './types';
 import { InputStep } from './components/Steps/1_Input';
 import ConceptStep from './components/Steps/1b_Concept';
 import PlanStep from './components/Steps/2_Plan';
@@ -24,7 +24,6 @@ const App: React.FC = () => {
   const [isProcessing, setIsProcessing] = useState(false);
 
   // Data
-  // const [topic, setTopic] = useState(""); // OLD
   const [mainTopic, setMainTopic] = useState("");
   const [styleInput, setStyleInput] = useState("");
   const [contentInput, setContentInput] = useState("");
@@ -33,6 +32,7 @@ const App: React.FC = () => {
   const [selectedTemplate, setSelectedTemplate] = useState<TemplateType>(TemplateType.XIAOHONGSHU);
   const [outputLanguage, setOutputLanguage] = useState("Simplified Chinese");
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>("3:4");
+  const [imageSize, setImageSize] = useState<ImageSize>("2K");
   
   // Concept Data
   const [conceptAnalysis, setConceptAnalysis] = useState("");
@@ -84,15 +84,14 @@ const App: React.FC = () => {
     setIsProcessing(true);
     try {
       const fullTopic = getFullTopic();
-      // ✅ 假设 generateConcept 现在返回 { analysisText, conceptImages, artDirection? }
       const result = await generateConcept(
         fullTopic,
         referenceImages,
         selectedTemplate,
-        aspectRatio
+        aspectRatio,
+        imageSize
       );
       
-      // Convert base64 to ReferenceImage objects
       const newConcepts: ReferenceImage[] = result.conceptImages.map(b64 => ({
         id: crypto.randomUUID(),
         base64: b64,
@@ -104,10 +103,7 @@ const App: React.FC = () => {
 
       setConceptAnalysis(result.analysisText);
       setGeneratedConcepts(newConcepts);
-
-      // ✅ 同步全局艺术风格指导（主要是 PPT 分支会用到）
       setArtDirection(result.artDirection || "");
-
       setStep(AppStep.CONCEPT);
     } catch (e) {
       alert("Failed to generate concepts. Please check your API key or try again.");
@@ -124,11 +120,9 @@ const App: React.FC = () => {
   const handleConfirmConcept = async (selectedConcept: ReferenceImage) => {
     setIsProcessing(true);
     try {
-      // Prioritize the selected concept by putting it first in the list
       const allReferences = [selectedConcept, ...referenceImages];
       const fullTopic = getFullTopic();
       
-      // ✅ 将 artDirection 一并传入 Plan，让规划阶段在提示词里吃掉风格指导
       const result = await generatePlan(
         fullTopic,
         allReferences,
@@ -138,9 +132,7 @@ const App: React.FC = () => {
         artDirection || undefined
       );
       
-      // Update the main reference list to include the approved concept
       setReferenceImages(allReferences);
-      
       setAnalysis(result.analysis);
       setPlan(result.plan);
       setStep(AppStep.PLAN_REVIEW);
@@ -154,7 +146,7 @@ const App: React.FC = () => {
 
   const handleStartGeneration = async () => {
     setStep(AppStep.GENERATING);
-    setGeneratedImages([]); // Clear previous
+    setGeneratedImages([]); 
     setIsProcessing(true);
 
     const currentImages: GeneratedImage[] = [];
@@ -172,7 +164,8 @@ const App: React.FC = () => {
           analysis || undefined,
           selectedTemplate,
           outputLanguage,
-          aspectRatio
+          aspectRatio,
+          imageSize
         );
         const imageUrl = `data:image/jpeg;base64,${base64Data}`;
 
@@ -186,7 +179,7 @@ const App: React.FC = () => {
         };
 
         currentImages.push(newImage);
-        setGeneratedImages([...currentImages]); // Update React state
+        setGeneratedImages([...currentImages]); 
 
       } catch (error) {
         console.error(`Error generating image ${i+1}`, error);
@@ -200,7 +193,6 @@ const App: React.FC = () => {
     setIsProcessing(true);
     try {
       const fullTopic = getFullTopic();
-      // ✅ 再生 Plan 时也带上 artDirection，保证风格不丢
       const result = await generatePlan(
         fullTopic,
         referenceImages,
@@ -237,7 +229,8 @@ const App: React.FC = () => {
         analysis || undefined,
         selectedTemplate,
         outputLanguage,
-        aspectRatio
+        aspectRatio,
+        imageSize
       );
       const imageUrl = `data:image/jpeg;base64,${base64Data}`;
 
@@ -273,7 +266,7 @@ const App: React.FC = () => {
     setGeneratedImages([]);
     setGeneratedConcepts([]);
     setConceptAnalysis("");
-    setArtDirection("");          // ✅ 同步清空风格指导
+    setArtDirection("");          
     setIsProcessing(false);
     setStep(AppStep.INPUT);
   };
@@ -413,6 +406,8 @@ const App: React.FC = () => {
                 setOutputLanguage={setOutputLanguage}
                 aspectRatio={aspectRatio}
                 setAspectRatio={setAspectRatio}
+                imageSize={imageSize}
+                setImageSize={setImageSize}
                 onNext={handleGenerateConcept}
                 isProcessing={isProcessing}
                 hasGeneratedConcepts={generatedConcepts.length > 0}
@@ -430,7 +425,6 @@ const App: React.FC = () => {
                 onRegenerate={handleGenerateConcept}
                 isProcessing={isProcessing}
                 onBack={handleBack}
-                // ✅ 如果你想在 Concept UI 里展示风格指导，可以加一个 prop：artDirection={artDirection}
               />
             )}
 
@@ -444,7 +438,6 @@ const App: React.FC = () => {
                 onRegenerate={handleRegeneratePlan}
                 isRegenerating={isProcessing}
                 selectedTemplate={selectedTemplate}
-                // ✅ 同理，这里如果 Plan UI 需要展示，可加 artDirection={artDirection}
               />
             )}
 
@@ -470,6 +463,7 @@ const App: React.FC = () => {
                 onBack={handleBack}
                 selectedTemplate={selectedTemplate}
                 aspectRatio={aspectRatio}
+                imageSize={imageSize}
               />
             )}
 

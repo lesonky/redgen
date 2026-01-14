@@ -1,5 +1,7 @@
 {
   "name": "RedSet Gen",
   "description": "AI-powered Xiaohongshu (Little Red Book) image set generator. Create consistent, visually stunning image series from a single topic and reference photos.",
-  "requestFramePermissions": []
+  "requestFramePermissions": [
+    "microphone"
+  ]
 }

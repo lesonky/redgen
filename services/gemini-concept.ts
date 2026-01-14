@@ -1,5 +1,5 @@
 import { Type } from "@google/genai";
-import { ReferenceImage, TemplateType, AspectRatio } from "../types";
+import { ReferenceImage, TemplateType, AspectRatio, ImageSize } from "../types";
 import { getClient } from "./gemini-client";
 import { MODEL_IMAGE_GEN, MODEL_TEXT_REASONING } from "./gemini-constants";
 import { cleanJson, safeLog } from "./gemini-utils";
@@ -105,7 +105,8 @@ export const generateConcept = async (
   topic: string,
   referenceImages: ReferenceImage[],
   templateType: TemplateType,
-  aspectRatio: AspectRatio
+  aspectRatio: AspectRatio,
+  imageSize: ImageSize
 ): Promise<{ analysisText: string; conceptImages: string[]; artDirection?: string }> => {
   const ai = getClient();
   const hasReferences = referenceImages.length > 0;
@@ -389,7 +390,7 @@ IMPORTANT:
       config: {
         imageConfig: {
           aspectRatio: aspectRatio,
-          imageSize: "1K"
+          imageSize: imageSize
         }
       }
     });

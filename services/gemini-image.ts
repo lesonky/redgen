@@ -1,4 +1,4 @@
-import { ImagePlanItem, PlanAnalysis, ReferenceImage, TemplateType, AspectRatio } from "../types";
+import { ImagePlanItem, PlanAnalysis, ReferenceImage, TemplateType, AspectRatio, ImageSize } from "../types";
 import { getClient } from "./gemini-client";
 import { MODEL_IMAGE_GEN } from "./gemini-constants";
 import { delay, safeLog } from "./gemini-utils";
@@ -10,7 +10,8 @@ export const generateImageFromPlan = async (
   analysis: PlanAnalysis | undefined,
   templateType: TemplateType,
   outputLanguage: string,
-  aspectRatio: AspectRatio
+  aspectRatio: AspectRatio,
+  imageSize: ImageSize
 ): Promise<string> => {
   const ai = getClient();
 
@@ -228,12 +229,12 @@ ${stylePrompt}
 
 【参考图使用规则】
 - 主概念图（Primary Reference）：
-  - 对于科普漫画：它是角色设定与画风锚点，必须严格保持角色长相、线条和上色风格一致。
+  - 对于科普漫画：它是角色设定与画风锚点，必须严格保持角色长项、线条和上色风格一致。
   - 对于 PPT：它是 PPT 的主题背景与视觉动机，只能在其基础上做变体，而不是复制；要保留相同的色彩与图形语言。
   - 对于小红书商业图：它是整套图的品牌 KV，定义产品/人物外观、光线和色调，后续图片只是换景换构图，不换风格、不换人。
 - 其他参考图：
   - 只用于补充光线、材质、场景或道具细节。
-  - 不得推翻主概念图所定义的核心风格与主体设定。${
+  - 不得推翻主概念图所确定的主体设定和整体画风。${
     templateType === TemplateType.SCIENCE_COMIC
       ? `
 - 如果参考图是真实照片：只提取形体与场景灵感，以漫画风格重绘。`
@@ -292,7 +293,7 @@ ${textLayoutSection}
 
       parts.push({
         text:
-          "【辅助参考图】可以参考其中的光线、材质、场景结构或局部细节，用于丰富当前画面；但不得改变主概念图所确定的主体设定和整体画风。"
+          "【辅助参考图】可以参考其中的光线、材质、场景结构或局部细节，用于丰富当前画面；但不得改变主概念图所确定的主体身份和整体画风。"
       });
     });
 
@@ -324,7 +325,7 @@ ${textLayoutSection}
       config: {
         imageConfig: {
           aspectRatio: aspectRatio,
-          imageSize: "1K"
+          imageSize: imageSize
         }
       }
     });

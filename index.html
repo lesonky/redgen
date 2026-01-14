@@ -26,6 +26,31 @@
       ::-webkit-scrollbar-thumb:hover {
         background: #94a3b8;
       }
+
+      /* AI Breathing Glow Animation */
+      @keyframes breathing-glow {
+        0%, 100% { 
+          opacity: 0.4;
+          transform: scale(1);
+          filter: blur(2px);
+        }
+        50% { 
+          opacity: 0.9;
+          transform: scale(1.04);
+          filter: blur(4px);
+        }
+      }
+      .animate-breathing-glow {
+        animation: breathing-glow 2.5s ease-in-out infinite;
+      }
+      
+      @keyframes pulse-soft {
+        0%, 100% { transform: scale(1); opacity: 1; }
+        50% { transform: scale(1.03); opacity: 0.9; }
+      }
+      .animate-pulse-soft {
+        animation: pulse-soft 2s ease-in-out infinite;
+      }
     </style>
   <script type="importmap">
 {
@@ -35,7 +60,9 @@
     "react": "https://aistudiocdn.com/react@^19.2.0",
     "@google/genai": "https://aistudiocdn.com/@google/genai@^1.30.0",
     "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
-    "jszip": "https://aistudiocdn.com/jszip@^3.10.1"
+    "jszip": "https://aistudiocdn.com/jszip@^3.10.1",
+    "jspdf": "https://aistudiocdn.com/jspdf@^2.5.1",
+    "pptxgenjs": "https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.es.js"
   }
 }
 </script>

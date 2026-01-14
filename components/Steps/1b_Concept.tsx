@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Sparkles, RefreshCw, CheckCircle2, ArrowRight, Loader2, ArrowLeft, Wand2 } from 'lucide-react';
+import { Sparkles, RefreshCw, CheckCircle2, ArrowRight, Loader2, ArrowLeft, Wand2, Download } from 'lucide-react';
 import { ReferenceImage, TemplateType, AspectRatio } from '../../types';
 
 interface ConceptStepProps {
@@ -46,6 +46,16 @@ const ConceptStep: React.FC<ConceptStepProps> = ({
   const handleRegenerate = () => {
     setLoadingAction('regenerate');
     onRegenerate();
+  };
+
+  const handleDownload = (e: React.MouseEvent, img: ReferenceImage, index: number) => {
+    e.stopPropagation(); // Prevent card selection
+    const link = document.createElement('a');
+    link.href = img.previewUrl;
+    link.download = `redset_concept_${index + 1}.jpg`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   const themeColor = selectedTemplate === TemplateType.SCIENCE_COMIC ? 'blue' : selectedTemplate === TemplateType.PPT ? 'orange' : 'red';
@@ -104,6 +114,15 @@ const ConceptStep: React.FC<ConceptStepProps> = ({
                                <div className={`absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors ${isSelected ? 'bg-transparent' : ''}`} />
                             </div>
                             
+                            {/* Download Button */}
+                            <button
+                                onClick={(e) => handleDownload(e, img, idx)}
+                                className="absolute top-4 left-4 w-10 h-10 rounded-full bg-white/90 backdrop-blur-sm text-slate-700 flex items-center justify-center transition-all shadow-lg scale-0 group-hover:scale-100 hover:bg-white hover:text-slate-900 z-10"
+                                title="Download Concept"
+                            >
+                                <Download className="w-5 h-5" />
+                            </button>
+
                             <div className={`absolute top-4 right-4 w-10 h-10 rounded-full flex items-center justify-center transition-all shadow-lg scale-0 group-hover:scale-100
                             ${isSelected 
                                 ? `scale-100 bg-${themeColor}-500 text-white` 

@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { X, Image as ImageIcon, Sparkles, PenTool, Plus, ScanLine, BrainCircuit, Wand2, Globe, ShoppingBag, BookOpen, Palette, ArrowRight, UploadCloud, CheckCircle2, Presentation, Ratio, Layers, AlignLeft, Loader2 } from 'lucide-react';
-import { ReferenceImage, TemplateType, AspectRatio } from '../../types';
+import { X, Image as ImageIcon, Sparkles, PenTool, Plus, ScanLine, BrainCircuit, Wand2, Globe, ShoppingBag, BookOpen, Palette, ArrowRight, UploadCloud, CheckCircle2, Presentation, Ratio, Layers, AlignLeft, Loader2, Monitor } from 'lucide-react';
+import { ReferenceImage, TemplateType, AspectRatio, ImageSize } from '../../types';
 import { fileToGenerativePart, generateInputSuggestions } from '../../services/gemini';
 
 interface InputProps {
@@ -19,6 +19,8 @@ interface InputProps {
     setOutputLanguage: (l: string) => void;
     aspectRatio: AspectRatio;
     setAspectRatio: (r: AspectRatio) => void;
+    imageSize: ImageSize;
+    setImageSize: (s: ImageSize) => void;
     onNext: () => void;
     isProcessing: boolean;
     hasGeneratedConcepts?: boolean;
@@ -42,6 +44,7 @@ const LANGUAGES = [
 ];
 
 const ASPECT_RATIOS: AspectRatio[] = ["3:4", "9:16", "1:1", "4:3", "16:9"];
+const IMAGE_SIZES: ImageSize[] = ["2K", "4K"];
 
 const XIAOHONGSHU_PRESET_STYLES = [
     {
@@ -140,7 +143,7 @@ const COMIC_PRESET_STYLES = [
     },
     {
         "title": "美式超级英雄漫画",
-        "description": "【视觉基调】\n美式漫画风，力量感强，戏剧化光影\n\n【画面元素】\n英雄角色、动态构图、夸张动作、速度线、爆炸效果\n\n【风格约束】\n保持漫画感，不使用真实电影镜头风格\n\n【叙事风格】\n正邪冲突，目标明确，问题-挑战-胜利结构\n\n【分镜与漫画结构】\n分镜节奏快，动作导向，画面冲击力强"
+        "description": "【视觉基调】\n美式漫画风，力量感强，戏剧化光影\n\n【画面元素】\n英雄角色、动态构图、夸张动作、速度线、爆炸效果\n\n【风格约束】\n保持漫画感，不使用真实电影镜头风格\n\n【叙事风格】\n正邪冲突，目标明确，问题-挑战-胜利结构\n\n://分镜与漫画结构\n分镜节奏快，动作导向，画面冲击力强"
     },
     {
         "title": "辛普森一家风格漫画",
@@ -164,6 +167,8 @@ export const InputStep: React.FC<InputProps> = ({
     setOutputLanguage,
     aspectRatio,
     setAspectRatio,
+    imageSize,
+    setImageSize,
     onNext,
     isProcessing,
     hasGeneratedConcepts = false,
@@ -339,6 +344,8 @@ export const InputStep: React.FC<InputProps> = ({
                 ? XIAOHONGSHU_PRESET_STYLES
                 : [];
 
+    const isAutoFillAvailable = !isAutoFilling && (mainTopic.trim() !== "" || referenceImages.length > 0);
+
     return (
         <div className="flex flex-col h-full w-full bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden relative animate-fade-in">
             {/* Top Accent */}
@@ -423,21 +430,40 @@ export const InputStep: React.FC<InputProps> = ({
                                     <PenTool className={`w-4 h-4 text-${themeColor}-500`} /> Project Details
                                 </h3>
 
-                                <button
-                                    onClick={handleAutoFill}
-                                    disabled={isAutoFilling || (!mainTopic.trim() && referenceImages.length === 0)}
-                                    className={`text-[10px] font-bold px-2.5 py-1 rounded-full flex items-center gap-1.5 transition-all
-                                ${!mainTopic.trim() && referenceImages.length === 0
-                                            ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
-                                            : `bg-${themeColor}-50 text-${themeColor}-600 hover:bg-${themeColor}-100 border border-${themeColor}-200`}`}
-                                    title="Auto-generate Style & Content based on Topic"
-                                >
-                                    {isAutoFilling ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
-                                    Auto-Fill with AI
-                                </button>
+                                <div className="relative">
+                                    {isAutoFillAvailable && (
+                                        <div className="absolute -inset-[3px] rounded-full bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 animate-breathing-glow z-0" />
+                                    )}
+                                    <button
+                                        onClick={handleAutoFill}
+                                        disabled={!isAutoFillAvailable}
+                                        className={`relative z-10 text-[10px] font-bold px-3 py-1.5 rounded-full flex items-center gap-1.5 transition-all
+                                    ${!isAutoFillAvailable
+                                                ? 'bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200 opacity-60'
+                                                : `bg-white text-${themeColor}-600 hover:text-white hover:bg-${themeColor}-500 border border-${themeColor}-200 shadow-sm`}`}
+                                        title="Auto-generate Style & Content based on Topic"
+                                    >
+                                        {isAutoFilling ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                                        Auto-Fill with AI
+                                    </button>
+                                </div>
                             </div>
 
                             <div className="flex items-center gap-2">
+                                {/* Resolution Selector */}
+                                <div className="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-lg transition-colors cursor-pointer border border-transparent hover:border-slate-300">
+                                    <Monitor className="w-3.5 h-3.5 text-slate-500" />
+                                    <select
+                                        value={imageSize}
+                                        onChange={(e) => setImageSize(e.target.value as ImageSize)}
+                                        className="bg-transparent text-xs font-semibold text-slate-600 outline-none cursor-pointer border-none p-0 focus:ring-0 appearance-none pr-1"
+                                    >
+                                        {IMAGE_SIZES.map(size => (
+                                            <option key={size} value={size}>{size}</option>
+                                        ))}
+                                    </select>
+                                </div>
+
                                 {/* Aspect Ratio Selector */}
                                 <div className="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-lg transition-colors cursor-pointer border border-transparent hover:border-slate-300">
                                     <Ratio className="w-3.5 h-3.5 text-slate-500" />
@@ -525,7 +551,7 @@ export const InputStep: React.FC<InputProps> = ({
                                                 className={`text-[10px] px-2 py-1 rounded-md border transition-all truncate max-w-full
                                             ${styleInput === preset.description
                                                         ? `bg-${themeColor}-500 text-white border-${themeColor}-500 shadow-sm`
-                                                        : `bg-white text-slate-600 border-slate-200 hover:border-${themeColor}-300 hover:bg-${themeColor}-50`}`}
+                                                        : `bg-white text-slate-600 border-slate-200 hover:border-${themeColor}-300 hover:bg-${themeColor}-50 Tian`}`}
                                                 title={preset.title}
                                             >
                                                 {preset.title}
